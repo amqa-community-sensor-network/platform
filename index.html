@@ -135,9 +135,12 @@
 
             <!-- Single Community View -->
             <div id="view-community" class="view">
-                <div class="view-header">
-                    <h1 id="community-name"></h1>
-                    <div class="community-tags-container" id="community-type-badge"></div>
+                <div class="view-header" style="flex-direction:column;align-items:flex-start;gap:6px">
+                    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                        <h1 id="community-name"></h1>
+                        <div class="community-tags-container" id="community-type-badge"></div>
+                    </div>
+                    <a class="add-sub-community-link" id="add-sub-community-btn" onclick="openAddSubCommunityModal(currentCommunity)">+ Add Sub-Community</a>
                 </div>
 
                 <div class="tabs">
@@ -149,22 +152,7 @@
                 </div>
 
                 <div id="tab-community-sensors" class="tab-content active">
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Sensor ID</th>
-                                    <th>SOA Tag ID</th>
-                                    <th>Status</th>
-                                    <th>Location</th>
-                                    <th>Purchase Date</th>
-                                    <th>Collocation Dates</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="community-sensors-tbody"></tbody>
-                        </table>
-                    </div>
+                    <div id="community-sensors-section"></div>
                 </div>
 
                 <div id="tab-community-contacts" class="tab-content">
@@ -338,11 +326,11 @@
                     <label>Move To Community</label>
                     <select id="move-to-community" required></select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="move-date-group">
                     <label>Date of Move</label>
                     <input type="datetime-local" id="move-date">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="move-notes-group">
                     <label>Additional Details (optional)</label>
                     <textarea id="move-additional-info" rows="4" class="mention-textarea" placeholder="e.g. Removed by AC for recommended servicing. Type @ to tag a contact."></textarea>
                     <div class="mention-dropdown" id="move-mention-dropdown"></div>
@@ -372,11 +360,11 @@
                     <label>New Status</label>
                     <div id="status-change-new" class="status-toggle-list"></div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="status-change-date-group">
                     <label>Date</label>
                     <input type="datetime-local" id="status-change-date">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="status-change-notes-group">
                     <label>Additional Info (optional)</label>
                     <textarea id="status-change-info" rows="3" class="mention-textarea" placeholder="Type @ to tag a contact."></textarea>
                     <div class="mention-dropdown" id="status-mention-dropdown"></div>
@@ -644,6 +632,12 @@
                 <div class="form-group">
                     <label>Community Name</label>
                     <input type="text" id="community-name-input" required placeholder="e.g. North Pole">
+                </div>
+                <div class="form-group">
+                    <label>Parent Community (optional — makes this a sub-community)</label>
+                    <select id="community-parent-input">
+                        <option value="">— None (top-level) —</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Tags (optional)</label>

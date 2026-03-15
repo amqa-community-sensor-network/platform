@@ -518,7 +518,7 @@ body {
 /* ===== OPEN TABS BAR ===== */
 .open-tabs-bar {
     display: none;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0;
     padding: 0 36px;
     background: var(--slate-50);
@@ -599,6 +599,66 @@ body {
     flex-shrink: 0;
 }
 
+.open-tab-group {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.open-tab-group .open-tab {
+    border-bottom: none;
+}
+
+.open-tab-group .open-tab.active {
+    border-bottom: none;
+}
+
+.open-tab-children {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid transparent;
+}
+
+.open-tab-children .open-tab-child {
+    font-size: 11px;
+    padding: 5px 10px;
+    color: var(--slate-400);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s var(--ease-out);
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-left: 1px solid var(--slate-200);
+}
+
+.open-tab-children .open-tab-child:first-child {
+    border-left: none;
+    padding-left: 14px;
+}
+
+.open-tab-children .open-tab-child:hover {
+    color: var(--slate-600);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.open-tab-children .open-tab-child.active {
+    color: var(--navy-600);
+    font-weight: 600;
+    border-bottom-color: var(--navy-400);
+}
+
+.open-tab-children .open-tab-child .open-tab-close {
+    width: 14px;
+    height: 14px;
+    font-size: 10px;
+}
+
 /* ===== MAIN CONTENT ===== */
 #main-content {
     flex: 1;
@@ -667,59 +727,195 @@ body {
 }
 
 /* ===== COMMUNITIES LIST ===== */
-.community-card {
+.community-row {
     background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 20px 24px;
-    margin-bottom: 10px;
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-sm);
+    padding: 12px 18px;
+    margin-bottom: 2px;
     border: 1px solid rgba(0, 0, 0, 0.04);
     cursor: pointer;
-    transition: all 0.25s var(--ease-out);
+    transition: all 0.15s var(--ease-out);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
 }
 
-.community-card:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+.community-row:hover {
+    background: rgba(37, 99, 176, 0.03);
     border-color: var(--navy-200);
 }
 
-.community-card-info h3 {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--slate-800);
-    margin-bottom: 3px;
+.parent-row {
+    padding: 14px 18px;
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    margin-bottom: 0;
+    border-bottom: none;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
-.community-card-info .community-card-type {
-    font-size: 12px;
+.parent-row + .child-list {
+    margin-bottom: 8px;
+}
+
+.parent-row + .child-list:not(.open) + .community-row,
+.parent-row + .child-list:not(.open) + .parent-row {
+    margin-top: 2px;
+}
+
+.parent-expand-arrow {
+    font-size: 10px;
     color: var(--slate-400);
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    transition: transform 0.2s var(--ease-out);
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+    padding: 4px;
+    border-radius: 4px;
 }
 
-.community-card-sensors {
-    text-align: right;
-    font-size: 13px;
-    color: var(--slate-500);
-    max-width: 420px;
-}
-
-.community-card-sensors strong {
-    font-weight: 600;
+.parent-expand-arrow:hover {
+    background: rgba(0, 0, 0, 0.05);
     color: var(--slate-600);
 }
 
-.community-card-sensors .sensor-list {
-    color: var(--navy-600);
+.parent-expand-arrow.open {
+    transform: rotate(90deg);
+}
+
+.child-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s var(--ease-out);
+    padding-left: 28px;
+    border-left: 2px solid var(--navy-200);
+    margin-left: 26px;
+}
+
+.child-list.open {
+    max-height: 800px;
+}
+
+.child-row {
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    margin-bottom: 1px;
+    border: none;
+    background: var(--slate-50);
+}
+
+.child-row:hover {
+    background: rgba(37, 99, 176, 0.06);
+}
+
+.child-row .community-row-name {
+    font-size: 13.5px;
+    font-weight: 500;
+}
+
+.community-row-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.community-row-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--slate-800);
+    white-space: nowrap;
+}
+
+.community-row-meta {
+    font-size: 12px;
+    color: var(--slate-400);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.community-row-sensors {
     font-size: 12px;
     font-family: var(--font-mono);
     font-weight: 500;
-    margin-top: 2px;
+    color: var(--navy-600);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 400px;
+    flex-shrink: 0;
+}
+
+.community-row .community-type-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+}
+
+.community-row .community-card-tags {
+    display: inline-flex;
+    gap: 4px;
+}
+
+/* ===== ADD SUB-COMMUNITY LINK ===== */
+.add-sub-community-link {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--slate-400);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.add-sub-community-link:hover {
+    color: var(--navy-600);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* ===== SITE GROUPS (parent community sensor view) ===== */
+.site-group {
+    margin-bottom: 24px;
+}
+
+.site-group-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--slate-800);
+    padding: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.site-group-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--slate-400);
+}
+
+.site-group-table {
+    margin-left: 16px;
+}
+
+/* ===== SUB-COMMUNITIES ===== */
+.community-parent-breadcrumb {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--slate-400);
+}
+
+.community-parent-breadcrumb .clickable {
+    color: var(--slate-400);
+    font-weight: 500;
+}
+
+.community-parent-breadcrumb .clickable:hover {
+    color: var(--navy-600);
 }
 
 /* ===== TABLES ===== */
