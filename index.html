@@ -42,11 +42,13 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="menu-item community-toggle" data-view="communities">
-                        <span class="icon">&#9660;</span> Communities
+                    <a href="#" class="menu-item community-menu-item" data-view="communities">
+                        <span class="icon" style="font-size:11px">&#9679;</span>
+                        <span class="community-nav-label">Communities</span>
+                        <span class="community-toggle-arrow" title="Show tag groups">&#9660;</span>
                     </a>
                     <ul class="community-list" id="community-list">
-                        <!-- Populated by JS -->
+                        <!-- Populated by JS with tag groups -->
                     </ul>
                 </li>
                 <li>
@@ -55,23 +57,24 @@
                     </a>
                 </li>
             </ul>
+            <div id="setup-mode-toggle" class="setup-mode-toggle" onclick="toggleSetupMode()">
+                <span class="setup-mode-icon">&#9881;</span>
+                <span class="setup-mode-label">Setup Mode</span>
+            </div>
         </nav>
 
         <!-- Main content -->
-        <main id="main-content">
+        <div id="main-wrapper">
+            <div id="open-tabs-bar" class="open-tabs-bar"></div>
+            <main id="main-content">
             <!-- Dashboard View -->
             <div id="view-dashboard" class="view active">
-                <h1>Community Sensor Network Dashboard</h1>
-                <div class="dashboard-stats" id="dashboard-stats"></div>
-                <div class="map-container">
-                    <h3>Live Sensor Map</h3>
-                    <iframe
-                        src="https://experience.arcgis.com/experience/8655256b056a48f6a19788d43cdab30f"
-                        class="map-iframe"
-                        title="AK Sensor Network Map"
-                        allowfullscreen>
-                    </iframe>
-                </div>
+                <iframe
+                    src="https://experience.arcgis.com/experience/8655256b056a48f6a19788d43cdab30f"
+                    class="map-iframe-full"
+                    title="AK Sensor Network Map"
+                    allowfullscreen>
+                </iframe>
             </div>
 
             <!-- All Sensors View -->
@@ -121,7 +124,9 @@
             <div id="view-communities" class="view">
                 <div class="view-header">
                     <h1>All Communities</h1>
+                    <button class="btn btn-primary" onclick="openAddCommunityModal()">+ Add Community</button>
                 </div>
+                <div id="community-tag-filters" class="community-tag-filters"></div>
                 <div class="filter-bar">
                     <input type="text" id="community-search" placeholder="Search communities..." oninput="renderCommunitiesList()">
                 </div>
@@ -163,6 +168,9 @@
                 </div>
 
                 <div id="tab-community-contacts" class="tab-content">
+                    <div class="history-actions">
+                        <button class="btn btn-primary" onclick="openAddContactForCommunity()">+ Add Contact</button>
+                    </div>
                     <div id="community-contacts-list" class="contacts-grid"></div>
                 </div>
 
@@ -208,6 +216,7 @@
             <div id="view-contact-detail" class="view">
                 <div class="view-header">
                     <h1 id="contact-detail-name"></h1>
+                    <button class="btn btn-sm" id="edit-contact-btn" onclick="openEditCurrentContact()">Edit Contact</button>
                 </div>
                 <div class="contact-info-card" id="contact-info-card"></div>
 
@@ -248,6 +257,7 @@
                 </div>
             </div>
         </main>
+        </div>
     </div>
 
     <!-- MODALS -->
@@ -275,6 +285,8 @@
                         <option value="Community Pod">Community Pod</option>
                         <option value="Permanent Pod">Permanent Pod</option>
                         <option value="Audit Pod">Audit Pod</option>
+                        <option value="Collocation/Health Check">Collocation/Health Check</option>
+                        <option value="Not Assigned">Not Assigned</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -410,7 +422,21 @@
                     <label>Organization</label>
                     <input type="text" id="contact-org-input" placeholder="e.g. Kodiak Area Native Association">
                 </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <div class="contact-status-toggle">
+                        <label class="contact-status-option">
+                            <input type="radio" name="contact-active" id="contact-active-yes" value="active" checked>
+                            <span class="contact-status-label active-label">Active</span>
+                        </label>
+                        <label class="contact-status-option">
+                            <input type="radio" name="contact-active" id="contact-active-no" value="inactive">
+                            <span class="contact-status-label inactive-label">Inactive</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="delete-contact-btn" onclick="deleteCurrentContact()" style="margin-right:auto;display:none">Delete Contact</button>
                     <button type="button" class="btn" onclick="closeModal('modal-add-contact')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Contact</button>
                 </div>
@@ -603,6 +629,72 @@
             <div class="modal-footer">
                 <button type="button" class="btn" onclick="skipEditAnnotation()">Skip</button>
                 <button type="button" class="btn btn-primary" onclick="saveEditAnnotation()">Save Note</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Community Modal -->
+    <div id="modal-add-community" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Add New Community</h2>
+                <button class="modal-close" onclick="closeModal('modal-add-community')">&times;</button>
+            </div>
+            <form id="community-form" onsubmit="saveCommunity(event)">
+                <div class="form-group">
+                    <label>Community Name</label>
+                    <input type="text" id="community-name-input" required placeholder="e.g. North Pole">
+                </div>
+                <div class="form-group">
+                    <label>Tags (optional)</label>
+                    <div id="new-community-tags" class="edit-tags-list"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('modal-add-community')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Community</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact Status Change Note Modal -->
+    <div id="modal-contact-status-note" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Contact Status Changed</h2>
+                <button class="modal-close" onclick="skipContactStatusNote()">&times;</button>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+                <p id="contact-status-note-summary" style="font-size:14px;color:var(--slate-700);line-height:1.5;padding:0 4px"></p>
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="datetime-local" id="contact-status-note-date">
+            </div>
+            <div class="form-group">
+                <label>Additional Notes (optional)</label>
+                <textarea id="contact-status-note-text" rows="3" placeholder="e.g. Contact moved to a different organization, no longer managing the sensor site."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="skipContactStatusNote()">Skip</button>
+                <button type="button" class="btn btn-primary" onclick="saveContactStatusNote()">Save Note</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Sensor Type Modal -->
+    <div id="modal-type-change" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Change Sensor Type</h2>
+                <button class="modal-close" onclick="closeModal('modal-type-change')">&times;</button>
+            </div>
+            <div style="padding: 20px 28px 8px">
+                <p style="font-size:13px;color:var(--slate-500);margin-bottom:16px">Sensor: <strong id="type-change-sensor-label"></strong></p>
+                <div id="type-change-options" class="type-change-options"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="closeModal('modal-type-change')">Cancel</button>
             </div>
         </div>
     </div>

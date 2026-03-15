@@ -1,23 +1,50 @@
 // ===== DATA LAYER =====
 const COMMUNITIES = [
     { id: 'anchorage', name: 'Anchorage' },
-    { id: 'fairbanks', name: 'Fairbanks' },
-    { id: 'juneau', name: 'Juneau' },
+    { id: 'badger', name: 'Badger' },
     { id: 'bethel', name: 'Bethel' },
+    { id: 'big-lake', name: 'Big Lake' },
+    { id: 'chickaloon', name: 'Chickaloon' },
+    { id: 'cordova', name: 'Cordova' },
+    { id: 'delta-junction', name: 'Delta Junction' },
+    { id: 'fairbanks', name: 'Fairbanks' },
+    { id: 'galena', name: 'Galena' },
+    { id: 'gerstle-river', name: 'Gerstle River' },
+    { id: 'glennallen', name: 'Glennallen' },
+    { id: 'goldstream', name: 'Goldstream' },
+    { id: 'haines', name: 'Haines' },
     { id: 'homer', name: 'Homer' },
+    { id: 'hoonah', name: 'Hoonah' },
+    { id: 'juneau', name: 'Juneau' },
+    { id: 'kenai', name: 'Kenai' },
     { id: 'ketchikan', name: 'Ketchikan' },
     { id: 'kodiak', name: 'Kodiak' },
+    { id: 'kotzebue', name: 'Kotzebue' },
+    { id: 'napaskiak', name: 'Napaskiak' },
+    { id: 'nenana', name: 'Nenana' },
     { id: 'ninilchik', name: 'Ninilchik' },
+    { id: 'nome', name: 'Nome' },
+    { id: 'palmer', name: 'Palmer' },
+    { id: 'salcha', name: 'Salcha' },
+    { id: 'seward', name: 'Seward' },
     { id: 'sitka', name: 'Sitka' },
+    { id: 'skagway', name: 'Skagway' },
+    { id: 'soldotna', name: 'Soldotna' },
+    { id: 'talkeetna', name: 'Talkeetna' },
+    { id: 'tok', name: 'Tok' },
     { id: 'tyonek', name: 'Tyonek' },
+    { id: 'valdez', name: 'Valdez' },
     { id: 'wasilla', name: 'Wasilla' },
+    { id: 'willow', name: 'Willow' },
     { id: 'wrangell', name: 'Wrangell' },
+    { id: 'yakutat', name: 'Yakutat' },
 ];
 
 const AVAILABLE_TAGS = [
     'Regulatory Site',
     'Municipality of Anchorage Network',
     'Interior Network',
+    'BLM',
 ];
 
 function loadData(key, fallback) {
@@ -44,6 +71,8 @@ if (Object.keys(communityTags).length === 0) {
         anchorage: ['Regulatory Site', 'Municipality of Anchorage Network'],
         fairbanks: ['Regulatory Site', 'Interior Network'],
         juneau: ['Regulatory Site'],
+        glennallen: ['BLM'],
+        talkeetna: ['BLM'],
     };
     saveData('communityTags', communityTags);
 }
@@ -61,17 +90,94 @@ function persist() {
     saveData('communityTags', communityTags);
 }
 
+// ===== RECENT ACTIVITY TRACKING =====
+let recentActivity = loadData('recentActivity', { communities: [], contacts: [], sensors: [] });
+
+function trackRecent(type, id, action) {
+    // type: 'communities' | 'contacts' | 'sensors'
+    // action: 'viewed' | 'edited'
+    const list = recentActivity[type] || [];
+    // Remove existing entry for this id
+    const filtered = list.filter(item => item.id !== id);
+    // Add to front
+    filtered.unshift({ id, action, time: new Date().toISOString() });
+    // Keep only 5
+    recentActivity[type] = filtered.slice(0, 5);
+    saveData('recentActivity', recentActivity);
+}
+
 // Load sample data on first run
 if (sensors.length === 0 && contacts.length === 0) {
     sensors = [
-        { id: 'Mod_660', soaTagId: '', type: 'Community Pod', status: 'Online', community: 'kodiak', location: 'Kodiak Public Library', datePurchased: '2023-06-15', collocationDates: '' },
-        { id: 'Mod_471', soaTagId: '', type: 'Audit Pod', status: 'Online', community: 'anchorage', location: 'DEC Anchorage Office', datePurchased: '2022-11-01', collocationDates: 'Mar 5 - Mar 13, 2026' },
-        { id: 'Mod_674', soaTagId: '', type: 'Community Pod', status: 'Online', community: 'bethel', location: 'Bethel Youth Facility', datePurchased: '2023-08-20', collocationDates: '' },
-        { id: 'Mod_512', soaTagId: '', type: 'Permanent Pod', status: 'Online', community: 'fairbanks', location: 'DEC Fairbanks Office', datePurchased: '2022-03-10', collocationDates: '' },
-        { id: 'Mod_389', soaTagId: '', type: 'Community Pod', status: 'Offline', community: 'homer', location: 'Homer Public Library', datePurchased: '2023-01-18', collocationDates: '' },
-        { id: 'Mod_445', soaTagId: '', type: 'Audit Pod', status: 'In Storage', community: 'juneau', location: 'DEC Juneau Office', datePurchased: '2022-07-22', collocationDates: '' },
-        { id: 'Mod_701', soaTagId: '', type: 'Community Pod', status: 'Online', community: 'sitka', location: 'Sitka Tribal Office', datePurchased: '2024-02-14', collocationDates: '' },
-        { id: 'Mod_555', soaTagId: '', type: 'Community Pod', status: 'PM Sensor Issue', community: 'wrangell', location: 'Wrangell School', datePurchased: '2023-05-03', collocationDates: '' },
+        { id: 'MOD-00442', soaTagId: '', type: 'Community Pod', status: [], community: 'napaskiak', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00443', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00444', soaTagId: '', type: 'Community Pod', status: [], community: 'wrangell', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00445', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00446', soaTagId: '', type: 'Community Pod', status: [], community: 'galena', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00447', soaTagId: '', type: 'Community Pod', status: [], community: 'delta-junction', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00448', soaTagId: '', type: 'Community Pod', status: [], community: 'goldstream', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00449', soaTagId: '', type: 'Community Pod', status: [], community: 'ketchikan', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00450', soaTagId: '', type: 'Community Pod', status: [], community: 'haines', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00451', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00452', soaTagId: '', type: 'Community Pod', status: [], community: 'hoonah', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00453', soaTagId: '', type: 'Community Pod', status: [], community: 'skagway', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00454', soaTagId: '', type: 'Community Pod', status: [], community: 'sitka', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00455', soaTagId: '', type: 'Community Pod', status: [], community: 'juneau', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00456', soaTagId: '', type: 'Community Pod', status: [], community: 'juneau', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00458', soaTagId: '', type: 'Community Pod', status: [], community: 'valdez', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00459', soaTagId: '', type: 'Community Pod', status: [], community: 'soldotna', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00460', soaTagId: '', type: 'Audit Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00461', soaTagId: '', type: 'Community Pod', status: [], community: 'ninilchik', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00462', soaTagId: '', type: 'Community Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00463', soaTagId: '', type: 'Permanent Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00464', soaTagId: '', type: 'Community Pod', status: [], community: 'homer', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00465', soaTagId: '', type: 'Community Pod', status: [], community: 'seward', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00466', soaTagId: '', type: 'Community Pod', status: [], community: 'glennallen', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00467', soaTagId: '', type: 'Community Pod', status: [], community: 'talkeetna', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00468', soaTagId: '', type: 'Community Pod', status: [], community: 'big-lake', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00469', soaTagId: '', type: 'Community Pod', status: [], community: 'tyonek', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00470', soaTagId: '', type: 'Community Pod', status: [], community: 'willow', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00471', soaTagId: '', type: 'Audit Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00649', soaTagId: '', type: 'Community Pod', status: [], community: 'chickaloon', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00650', soaTagId: '', type: 'Community Pod', status: [], community: 'kenai', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00651', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00652', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00653', soaTagId: '', type: 'Community Pod', status: [], community: 'tok', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00654', soaTagId: '', type: 'Community Pod', status: [], community: 'nome', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00655', soaTagId: '', type: 'Community Pod', status: [], community: 'nenana', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00656', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00657', soaTagId: '', type: 'Community Pod', status: [], community: 'palmer', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00658', soaTagId: '', type: 'Community Pod', status: [], community: 'yakutat', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00659', soaTagId: '', type: 'Community Pod', status: [], community: 'bethel', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00660', soaTagId: '', type: 'Community Pod', status: [], community: 'kodiak', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00662', soaTagId: '', type: 'Community Pod', status: [], community: 'kotzebue', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00663', soaTagId: '', type: 'Community Pod', status: [], community: 'wasilla', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00664', soaTagId: '', type: 'Community Pod', status: [], community: 'badger', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00665', soaTagId: '', type: 'Audit Pod', status: [], community: 'juneau', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00666', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00667', soaTagId: '', type: 'Community Pod', status: [], community: 'cordova', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00668', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00669', soaTagId: '', type: 'Permanent Pod', status: [], community: 'juneau', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00670', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00671', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: 'Anne Wien Elementary School', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00672', soaTagId: '', type: 'Community Pod', status: [], community: 'salcha', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00673', soaTagId: '', type: 'Community Pod', status: [], community: 'gerstle-river', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-00674', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01656', soaTagId: '', type: 'Community Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01657', soaTagId: '', type: 'Community Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01658', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01754', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01755', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01757', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01758', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01759', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01760', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01761', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01762', soaTagId: '', type: 'Community Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01763', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01764', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01765', soaTagId: '', type: 'Community Pod', status: [], community: 'anchorage', location: '', datePurchased: '', collocationDates: '' },
+        { id: 'MOD-X-PM-01766', soaTagId: '', type: 'Community Pod', status: [], community: 'fairbanks', location: '', datePurchased: '', collocationDates: '' },
     ];
     contacts = [
         { id: 'c1', name: 'Patricia Valerio', role: 'Tribal Environmental Coordinator', community: 'kodiak', email: 'pvalerio@example.com', phone: '907-555-0101', org: 'Kodiak Area Native Association' },
@@ -84,8 +190,8 @@ if (sensors.length === 0 && contacts.length === 0) {
             id: 'n1',
             date: '2026-03-13',
             type: 'Audit',
-            text: 'Kodiak sensor Mod_660 audited by Anchorage audit pod Mod_471 from March 5 - March 13, 2026, with coordination assistance by @Patricia Valerio.',
-            taggedSensors: ['Mod_660', 'Mod_471'],
+            text: 'Kodiak sensor MOD-00660 audited by Anchorage audit pod MOD-00471 from March 5 - March 13, 2026, with coordination assistance by @Patricia Valerio.',
+            taggedSensors: ['MOD-00660', 'MOD-00471'],
             taggedCommunities: ['kodiak', 'anchorage'],
             taggedContacts: ['c1'],
         }
@@ -120,7 +226,8 @@ function loginUser(name) {
     document.getElementById('app').style.display = 'flex';
     document.getElementById('sidebar-user').innerHTML =
         `<span class="user-name">${currentUser}</span><span class="user-logout">Sign out</span>`;
-    showView('dashboard');
+    renderSetupModeIndicator();
+    restoreLastView();
 }
 
 function addAndLoginUser() {
@@ -144,28 +251,147 @@ function getCurrentUserName() {
     return currentUser || 'Unknown';
 }
 
+// ===== SETUP MODE =====
+let setupMode = loadData('setupMode', false);
+
+function toggleSetupMode() {
+    setupMode = !setupMode;
+    saveData('setupMode', setupMode);
+    renderSetupModeIndicator();
+    // Re-render current view to reflect mode change
+    const activeView = document.querySelector('.view.active');
+    if (activeView) {
+        if (activeView.id === 'view-all-sensors') renderSensors();
+    }
+}
+
+function renderSetupModeIndicator() {
+    const el = document.getElementById('setup-mode-toggle');
+    if (el) {
+        el.classList.toggle('active', setupMode);
+        el.querySelector('.setup-mode-label').textContent = setupMode ? 'Setup Mode ON' : 'Setup Mode';
+    }
+}
+
 // ===== STATE =====
 let currentCommunity = null;
 let currentSensor = null;
 let currentContact = null;
 
+// ===== OPEN TABS =====
+let openTabs = []; // { id, type, label, icon }
+let activeTabId = null;
+
+function getTabId(type, itemId) {
+    return type + ':' + itemId;
+}
+
+function openTab(type, itemId, label) {
+    const tabId = getTabId(type, itemId);
+    const icons = { community: '\u25CF', sensor: '\u25A0', contact: '\u263B' };
+    const existing = openTabs.find(t => t.id === tabId);
+    if (!existing) {
+        // Insert next to the currently active tab
+        const activeIdx = openTabs.findIndex(t => t.id === activeTabId);
+        const insertAt = activeIdx >= 0 ? activeIdx + 1 : openTabs.length;
+        openTabs.splice(insertAt, 0, { id: tabId, type, itemId, label, icon: icons[type] || '' });
+    }
+    activeTabId = tabId;
+    renderOpenTabs();
+}
+
+function closeTab(tabId, event) {
+    if (event) event.stopPropagation();
+    const idx = openTabs.findIndex(t => t.id === tabId);
+    if (idx < 0) return;
+    openTabs.splice(idx, 1);
+
+    if (activeTabId === tabId) {
+        // Switch to nearest tab, or go to dashboard if none left
+        if (openTabs.length > 0) {
+            const newIdx = Math.min(idx, openTabs.length - 1);
+            switchToTab(openTabs[newIdx].id);
+        } else {
+            activeTabId = null;
+            showView('dashboard');
+        }
+    }
+    renderOpenTabs();
+}
+
+function switchToTab(tabId) {
+    const tab = openTabs.find(t => t.id === tabId);
+    if (!tab) return;
+    activeTabId = tabId;
+    renderOpenTabs();
+
+    // Re-render the view without creating a new tab
+    if (tab.type === 'community') showCommunityView(tab.itemId);
+    else if (tab.type === 'sensor') showSensorView(tab.itemId);
+    else if (tab.type === 'contact') showContactView(tab.itemId);
+}
+
+function renderOpenTabs() {
+    const bar = document.getElementById('open-tabs-bar');
+    if (openTabs.length === 0) {
+        bar.classList.remove('visible');
+        bar.innerHTML = '';
+        return;
+    }
+    bar.classList.add('visible');
+    bar.innerHTML = openTabs.map(tab => {
+        const isActive = tab.id === activeTabId;
+        return `<div class="open-tab ${isActive ? 'active' : ''}" onclick="switchToTab('${tab.id}')" title="${tab.label}">
+            <span class="open-tab-icon">${tab.icon}</span>
+            <span class="open-tab-label">${tab.label}</span>
+            <span class="open-tab-close" onclick="closeTab('${tab.id}', event)">&times;</span>
+        </div>`;
+    }).join('');
+}
+
+function clearTabHighlight() {
+    // When navigating to a list view, deactivate tab highlight but keep tabs
+    activeTabId = null;
+    renderOpenTabs();
+}
+
 // ===== SIDEBAR =====
+function getAllTags() {
+    // Combine AVAILABLE_TAGS with any tags assigned to communities
+    const allAssigned = Object.values(communityTags).flat();
+    return [...new Set([...AVAILABLE_TAGS, ...allAssigned])];
+}
+
+// Display names for tags (sidebar & filter bubbles) — tag value stays unchanged
+const TAG_DISPLAY_NAMES = {
+    'Regulatory Site': 'Regulatory Sites',
+};
+
+function getTagDisplayName(tag) {
+    return TAG_DISPLAY_NAMES[tag] || tag;
+}
+
 function buildSidebar() {
     const list = document.getElementById('community-list');
-    list.innerHTML = COMMUNITIES.map(c =>
-        `<li><a href="#" data-community="${c.id}" onclick="showCommunity('${c.id}')">${c.name}</a></li>`
+    const tags = getAllTags();
+    list.innerHTML = tags.map(tag =>
+        `<li><a href="#" data-tag="${tag}" onclick="event.preventDefault(); filterCommunitiesByTag('${tag.replace(/'/g, "\\'")}')">${getTagDisplayName(tag)}</a></li>`
     ).join('');
 }
 
-document.querySelector('.community-toggle').addEventListener('click', (e) => {
+// Arrow toggles the dropdown, clicking the label navigates to communities view
+document.querySelector('.community-menu-item').addEventListener('click', (e) => {
     e.preventDefault();
-    const list = document.getElementById('community-list');
-    if (list.classList.contains('open')) {
-        list.classList.remove('open');
-    } else {
-        list.classList.add('open');
-        showView('communities');
+    // If the click was on the arrow, toggle dropdown only
+    if (e.target.classList.contains('community-toggle-arrow')) {
+        const list = document.getElementById('community-list');
+        const arrow = e.target;
+        list.classList.toggle('open');
+        arrow.classList.toggle('open');
+        return;
     }
+    // Otherwise navigate to communities view
+    showView('communities');
 });
 
 document.querySelectorAll('.menu-item[data-view]').forEach(item => {
@@ -175,11 +401,35 @@ document.querySelectorAll('.menu-item[data-view]').forEach(item => {
         if (view === 'dashboard') showView('dashboard');
         if (view === 'all-sensors') showView('all-sensors');
         if (view === 'contacts') showView('contacts');
-        if (view === 'communities') return; // handled above
+        if (view === 'communities') return; // handled by community-menu-item listener
     });
 });
 
 // ===== VIEW MANAGEMENT =====
+function saveLastView(type, id) {
+    saveData('lastView', { type, id });
+}
+
+function restoreLastView() {
+    const last = loadData('lastView', null);
+    if (!last) { showView('dashboard'); return; }
+
+    if (last.type === 'community' && last.id) {
+        const exists = COMMUNITIES.find(c => c.id === last.id);
+        if (exists) { showCommunity(last.id); return; }
+    } else if (last.type === 'sensor' && last.id) {
+        const exists = sensors.find(s => s.id === last.id);
+        if (exists) { showSensorDetail(last.id); return; }
+    } else if (last.type === 'contact' && last.id) {
+        const exists = contacts.find(c => c.id === last.id);
+        if (exists) { showContactDetail(last.id); return; }
+    } else if (last.type === 'view' && last.id) {
+        showView(last.id);
+        return;
+    }
+    showView('dashboard');
+}
+
 function showView(viewName) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + viewName).classList.add('active');
@@ -189,29 +439,41 @@ function showView(viewName) {
     if (menuItem) menuItem.classList.add('active');
 
     document.querySelectorAll('.community-list a').forEach(a => a.classList.remove('active'));
+    // Highlight active tag in sidebar if filtering
+    if (viewName === 'communities' && communityTagFilter) {
+        document.querySelectorAll('.community-list a[data-tag]').forEach(a => {
+            if (a.dataset.tag === communityTagFilter) a.classList.add('active');
+        });
+    }
+
+    // Deactivate tab highlight when navigating to list views
+    clearTabHighlight();
 
     if (viewName === 'dashboard') renderDashboard();
     if (viewName === 'all-sensors') renderSensors();
     if (viewName === 'contacts') renderContacts();
     if (viewName === 'communities') renderCommunitiesList();
+
+    saveLastView('view', viewName);
 }
 
 // ===== DASHBOARD =====
 function renderDashboard() {
-    const online = sensors.filter(s => getStatusArray(s).includes('Online')).length;
-    const offline = sensors.filter(s => !getStatusArray(s).includes('Online')).length;
-
-    document.getElementById('dashboard-stats').innerHTML = `
-        <div class="stat-card"><div class="stat-value">${sensors.length}</div><div class="stat-label">Total Sensors</div></div>
-        <div class="stat-card"><div class="stat-value">${online}</div><div class="stat-label">Online</div></div>
-        <div class="stat-card"><div class="stat-value">${offline}</div><div class="stat-label">Offline / Other</div></div>
-        <div class="stat-card"><div class="stat-value">${COMMUNITIES.length}</div><div class="stat-label">Communities</div></div>
-        <div class="stat-card"><div class="stat-value">${contacts.length}</div><div class="stat-label">Contacts</div></div>
-    `;
+    // Dashboard is just the embedded AQI map — nothing to render dynamically
 }
 
 // ===== COMMUNITIES LIST VIEW =====
 let communityTagFilter = '';
+
+function renderCommunityTagFilters() {
+    const container = document.getElementById('community-tag-filters');
+    if (!container) return;
+    const tags = getAllTags();
+    container.innerHTML = tags.map(tag => {
+        const isActive = communityTagFilter === tag;
+        return `<button class="community-tag-filter-btn ${isActive ? 'active' : ''}" onclick="filterCommunitiesByTag('${tag.replace(/'/g, "\\'")}')">${getTagDisplayName(tag)}</button>`;
+    }).join('');
+}
 
 function renderCommunitiesList() {
     const search = (document.getElementById('community-search')?.value || '').toLowerCase();
@@ -221,17 +483,11 @@ function renderCommunitiesList() {
         return true;
     });
 
+    renderCommunityTagFilters();
+
     const container = document.getElementById('communities-list-container');
 
-    // Show active filter banner
-    const filterBanner = communityTagFilter
-        ? `<div class="tag-filter-banner">
-            Showing: <strong>${communityTagFilter}</strong>
-            <span class="clickable" onclick="clearCommunityTagFilter()" style="margin-left:8px">Show All</span>
-          </div>`
-        : '';
-
-    container.innerHTML = filterBanner + filtered.map(c => {
+    container.innerHTML = filtered.map(c => {
         const commSensors = sensors.filter(s => s.community === c.id);
         const sensorListStr = commSensors.length > 0
             ? commSensors.map(s => s.id).join(', ')
@@ -256,8 +512,8 @@ function renderCommunitiesList() {
 }
 
 function filterCommunitiesByTag(tag) {
-    communityTagFilter = tag;
-    renderCommunitiesList();
+    communityTagFilter = communityTagFilter === tag ? '' : tag;
+    showView('communities');
 }
 
 function clearCommunityTagFilter() {
@@ -283,6 +539,8 @@ function getStatusBadgeClass(status) {
     };
     return map[status] || 'badge-offline';
 }
+
+const SENSOR_TYPES = ['Community Pod', 'Permanent Pod', 'Audit Pod', 'Collocation/Health Check', 'Not Assigned'];
 
 // Get status as array (handles old single-string data and new array data)
 function getStatusArray(s) {
@@ -320,21 +578,80 @@ function renderSensors() {
         return true;
     });
 
-    document.getElementById('sensors-tbody').innerHTML = filtered.map(s => `
-        <tr>
-            <td><span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br><small style="color:#888">${s.type}</small></td>
-            <td>${s.soaTagId || '—'}</td>
-            <td>${renderStatusBadges(s, true)}</td>
-            <td><span class="clickable" onclick="showCommunity('${s.community}')">${getCommunityName(s.community)}</span></td>
-            <td>${s.location || '—'}</td>
-            <td>${s.datePurchased || '—'}</td>
-            <td>${s.collocationDates || '—'}</td>
-            <td>
-                <button class="btn btn-sm" onclick="openEditSensorModal('${s.id}')">Edit</button>
-                <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
-            </td>
-        </tr>
-    `).join('') || '<tr><td colspan="8" class="empty-state">No sensors found.</td></tr>';
+    if (setupMode) {
+        const communityOptions = '<option value="">— None —</option>' +
+            COMMUNITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        const statusOptions = ALL_STATUSES.map(st =>
+            `<option value="${st}">${st}</option>`
+        ).join('');
+        const typeOptions = SENSOR_TYPES.map(t =>
+            `<option value="${t}">${t}</option>`
+        ).join('');
+
+        document.getElementById('sensors-tbody').innerHTML = filtered.map(s => {
+            const currentStatuses = getStatusArray(s);
+            const statusSelectHtml = `<select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple title="Hold Ctrl/Cmd to select multiple">
+                ${ALL_STATUSES.map(st => `<option value="${st}" ${currentStatuses.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
+            </select>`;
+
+            return `<tr>
+                <td>
+                    <span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br>
+                    <select class="inline-edit-select inline-edit-sm" data-sensor="${s.id}" data-field="type" onchange="inlineSaveSensor(this)">
+                        ${SENSOR_TYPES.map(t =>
+                            `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`
+                        ).join('')}
+                    </select>
+                </td>
+                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                <td>${statusSelectHtml}</td>
+                <td><select class="inline-edit-select" data-sensor="${s.id}" data-field="community" onchange="inlineSaveSensor(this)">
+                    ${('<option value="">— None —</option>' + COMMUNITIES.map(c => `<option value="${c.id}" ${s.community === c.id ? 'selected' : ''}>${c.name}</option>`).join(''))}
+                </select></td>
+                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Location" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)"></td>
+                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Mar 5-13" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                <td>
+                    <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
+                </td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="8" class="empty-state">No sensors found.</td></tr>';
+
+        // Attach change listener for multi-select status fields
+        document.querySelectorAll('.inline-edit-status').forEach(sel => {
+            sel.addEventListener('change', function() { inlineSaveSensor(this); });
+        });
+    } else {
+        document.getElementById('sensors-tbody').innerHTML = filtered.map(s => `
+            <tr>
+                <td><span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br><small style="color:#888">${s.type}</small></td>
+                <td>${s.soaTagId || '—'}</td>
+                <td>${renderStatusBadges(s, true)}</td>
+                <td><span class="clickable" onclick="showCommunity('${s.community}')">${getCommunityName(s.community)}</span></td>
+                <td>${s.location || '—'}</td>
+                <td>${s.datePurchased || '—'}</td>
+                <td>${s.collocationDates || '—'}</td>
+                <td>
+                    <button class="btn btn-sm" onclick="openEditSensorModal('${s.id}')">Edit</button>
+                    <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="8" class="empty-state">No sensors found.</td></tr>';
+    }
+}
+
+function inlineSaveSensor(el) {
+    const sensorId = el.dataset.sensor;
+    const field = el.dataset.field;
+    const s = sensors.find(x => x.id === sensorId);
+    if (!s) return;
+
+    if (field === 'status') {
+        s.status = Array.from(el.selectedOptions).map(o => o.value);
+    } else {
+        s[field] = el.value.trim();
+    }
+    persist();
 }
 
 function openAddSensorModal() {
@@ -415,12 +732,13 @@ function saveSensor(e) {
         // Apply the data
         const idx = sensors.findIndex(s => s.id === editId);
         if (idx >= 0) sensors[idx] = data;
+        trackRecent('sensors', data.id, 'edited');
         persist();
         closeModal('modal-add-sensor');
         renderSensors();
 
-        // If there are changes, queue annotation popups
-        if (changes.length > 0) {
+        // If there are changes, queue annotation popups (skip in setup mode)
+        if (changes.length > 0 && !setupMode) {
             currentAnnotationSensorId = editId;
             pendingAnnotations = changes.map(c => ({
                 sensorId: c.sensorId,
@@ -449,7 +767,7 @@ function saveSensor(e) {
 function showNextAnnotation() {
     if (pendingAnnotations.length === 0) {
         currentAnnotationSensorId = null;
-        if (currentSensor) showSensorDetail(currentSensor);
+        if (currentSensor) showSensorView(currentSensor);
         return;
     }
 
@@ -567,12 +885,12 @@ function saveStatusChange(e) {
         taggedContacts: mentionedContacts,
     };
 
-    notes.push(note);
+    if (!setupMode) notes.push(note);
     persist();
     closeModal('modal-status-change');
     renderSensors();
-    if (currentSensor === sensorId) showSensorDetail(sensorId);
-    if (currentCommunity) showCommunity(currentCommunity);
+    if (currentSensor === sensorId) showSensorView(sensorId);
+    if (currentCommunity) showCommunityView(currentCommunity);
 }
 
 // ===== MOVE SENSOR =====
@@ -621,22 +939,31 @@ function moveSensor(e) {
         taggedContacts: mentionedContacts,
     };
 
-    notes.push(note);
+    if (!setupMode) notes.push(note);
     persist();
     closeModal('modal-move-sensor');
     renderSensors();
-    if (currentCommunity) showCommunity(currentCommunity);
+    if (currentCommunity) showCommunityView(currentCommunity);
 }
 
 // ===== SENSOR DETAIL =====
 function showSensorDetail(sensorId) {
     const s = sensors.find(x => x.id === sensorId);
     if (!s) return;
+    trackRecent('sensors', sensorId, 'viewed');
+    openTab('sensor', sensorId, s.id);
+    showSensorView(sensorId);
+    saveLastView('sensor', sensorId);
+}
+
+function showSensorView(sensorId) {
+    const s = sensors.find(x => x.id === sensorId);
+    if (!s) return;
     currentSensor = sensorId;
 
     document.getElementById('sensor-detail-title').textContent = s.id;
     document.getElementById('sensor-info-card').innerHTML = `
-        <div class="info-item"><label>Type</label><p>${s.type}</p></div>
+        <div class="info-item"><label>Type</label><p class="editable-field" onclick="inlineEditSensorType('${s.id}')">${s.type}</p></div>
         <div class="info-item"><label>SOA Tag ID</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'soaTagId')">${s.soaTagId || '—'}</p></div>
         <div class="info-item"><label>Status</label><p>${renderStatusBadges(s, true)}</p></div>
         <div class="info-item"><label>Community</label><p><span class="editable-field" onclick="openInlineCommunityChange('${s.id}')">${getCommunityName(s.community)}</span></p><a class="move-sensor-link" onclick="openMoveSensorModal('${s.id}')">Move Sensor &rarr;</a></div>
@@ -669,23 +996,82 @@ function inlineEditSensor(sensorId, field) {
 
     s[field] = newVal.trim();
     persist();
-    showSensorDetail(sensorId);
+    showSensorView(sensorId);
 
-    // Queue annotation for this change
-    currentAnnotationSensorId = sensorId;
-    pendingAnnotations = [{
-        sensorId: sensorId,
-        summary: `${label} changed from "${oldVal || '(empty)'}" to "${newVal.trim()}"`,
-        field: field,
-        oldVal: oldVal || '(empty)',
-        newVal: newVal.trim(),
-        label: label,
-    }];
-    showNextAnnotation();
+    // Queue annotation for this change (skip in setup mode)
+    if (!setupMode) {
+        currentAnnotationSensorId = sensorId;
+        pendingAnnotations = [{
+            sensorId: sensorId,
+            summary: `${label} changed from "${oldVal || '(empty)'}" to "${newVal.trim()}"`,
+            field: field,
+            oldVal: oldVal || '(empty)',
+            newVal: newVal.trim(),
+            label: label,
+        }];
+        showNextAnnotation();
+    }
+}
+
+let typeChangeSensorId = null;
+
+function inlineEditSensorType(sensorId) {
+    const s = sensors.find(x => x.id === sensorId);
+    if (!s) return;
+    typeChangeSensorId = sensorId;
+
+    document.getElementById('type-change-sensor-label').textContent = s.id;
+    const list = document.getElementById('type-change-options');
+    list.innerHTML = SENSOR_TYPES.map(t => {
+        const isCurrent = s.type === t;
+        return `<button class="type-option-btn ${isCurrent ? 'current' : ''}" onclick="selectSensorType('${t}')" ${isCurrent ? 'disabled' : ''}>
+            <span class="type-option-name">${t}</span>
+            ${isCurrent ? '<span class="type-option-current">Current</span>' : ''}
+        </button>`;
+    }).join('');
+
+    openModal('modal-type-change');
+}
+
+function selectSensorType(newType) {
+    const s = sensors.find(x => x.id === typeChangeSensorId);
+    if (!s) return;
+
+    const oldVal = s.type;
+    if (newType === oldVal) return;
+
+    s.type = newType;
+    trackRecent('sensors', typeChangeSensorId, 'edited');
+    persist();
+    closeModal('modal-type-change');
+    showSensorView(typeChangeSensorId);
+
+    // Queue annotation (skip in setup mode)
+    if (!setupMode) {
+        currentAnnotationSensorId = typeChangeSensorId;
+        pendingAnnotations = [{
+            sensorId: typeChangeSensorId,
+            summary: `Type changed from "${oldVal}" to "${newType}"`,
+            field: 'type',
+            oldVal: oldVal,
+            newVal: newType,
+            label: 'Type',
+        }];
+        showNextAnnotation();
+    }
 }
 
 // ===== COMMUNITIES =====
 function showCommunity(communityId) {
+    const community = COMMUNITIES.find(c => c.id === communityId);
+    if (!community) return;
+    trackRecent('communities', communityId, 'viewed');
+    openTab('community', communityId, community.name);
+    showCommunityView(communityId);
+    saveLastView('community', communityId);
+}
+
+function showCommunityView(communityId) {
     const community = COMMUNITIES.find(c => c.id === communityId);
     if (!community) return;
     currentCommunity = communityId;
@@ -699,9 +1085,6 @@ function showCommunity(communityId) {
     ` <span class="community-tag-edit" onclick="openEditCommunityTags('${communityId}')">+ Edit Tags</span>`;
 
     document.querySelectorAll('.community-list a').forEach(a => a.classList.remove('active'));
-    const link = document.querySelector(`.community-list a[data-community="${communityId}"]`);
-    if (link) link.classList.add('active');
-    document.getElementById('community-list').classList.add('open');
 
     // Sensors
     const commSensors = sensors.filter(s => s.community === communityId);
@@ -723,11 +1106,11 @@ function showCommunity(communityId) {
     // Contacts
     const commContacts = contacts.filter(c => c.community === communityId);
     document.getElementById('community-contacts-list').innerHTML = commContacts.map(c => `
-        <div class="contact-card" onclick="showContactDetail('${c.id}')">
-            <h3>${c.name}</h3>
+        <div class="contact-card ${c.active === false ? 'inactive' : ''}" onclick="showContactDetail('${c.id}')">
+            <h3>${c.name}${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : ''}</h3>
             <div class="contact-role">${c.role || ''}</div>
             <div class="contact-detail">${c.org || ''}</div>
-            <div class="contact-detail">${c.email ? `<a href="mailto:${c.email}" class="clickable" onclick="event.stopPropagation()">${c.email}</a>` : ''}</div>
+            <div class="contact-detail">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : ''}</div>
             <div class="contact-detail">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : ''}</div>
         </div>
     `).join('') || '<div class="empty-state">No contacts for this community.</div>';
@@ -861,11 +1244,11 @@ function renderContacts() {
             <div class="contacts-group-header">${commName}</div>
             <div class="contacts-grid">
                 ${groups[commName].map(c => `
-                    <div class="contact-card" onclick="showContactDetail('${c.id}')">
-                        <h3>${c.name}</h3>
+                    <div class="contact-card ${c.active === false ? 'inactive' : ''}" onclick="showContactDetail('${c.id}')">
+                        <h3>${c.name}${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : ''}</h3>
                         <div class="contact-role">${c.role || ''}</div>
                         <div class="contact-detail">${c.org || ''}</div>
-                        <div class="contact-detail">${c.email ? `<a href="mailto:${c.email}" class="clickable" onclick="event.stopPropagation()">${c.email}</a>` : ''}</div>
+                        <div class="contact-detail">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : ''}</div>
                         <div class="contact-detail">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : ''}</div>
                     </div>
                 `).join('')}
@@ -878,13 +1261,23 @@ function openAddContactModal() {
     document.getElementById('contact-modal-title').textContent = 'Add New Contact';
     document.getElementById('contact-form').reset();
     document.getElementById('contact-edit-id').value = '';
+    document.getElementById('contact-active-yes').checked = true;
+    document.getElementById('delete-contact-btn').style.display = 'none';
     populateCommunitySelect('contact-community-input');
     openModal('modal-add-contact');
+}
+
+function openAddContactForCommunity() {
+    openAddContactModal();
+    if (currentCommunity) {
+        document.getElementById('contact-community-input').value = currentCommunity;
+    }
 }
 
 function saveContact(e) {
     e.preventDefault();
     const editId = document.getElementById('contact-edit-id').value;
+    const isActive = document.getElementById('contact-active-yes').checked;
     const data = {
         id: editId || 'c' + Date.now(),
         name: document.getElementById('contact-name-input').value.trim(),
@@ -893,32 +1286,140 @@ function saveContact(e) {
         email: document.getElementById('contact-email-input').value.trim(),
         phone: document.getElementById('contact-phone-input').value.trim(),
         org: document.getElementById('contact-org-input').value.trim(),
+        active: isActive,
     };
 
+    let statusChanged = null; // 'deactivated' or 'reactivated' or null
     if (editId) {
+        const old = contacts.find(c => c.id === editId);
+        if (old) {
+            const wasActive = old.active !== false;
+            if (wasActive && !isActive) statusChanged = 'deactivated';
+            else if (!wasActive && isActive) statusChanged = 'reactivated';
+        }
         const idx = contacts.findIndex(c => c.id === editId);
         if (idx >= 0) contacts[idx] = data;
+        trackRecent('contacts', data.id, 'edited');
     } else {
         contacts.push(data);
+        trackRecent('contacts', data.id, 'edited');
     }
 
     persist();
     closeModal('modal-add-contact');
     renderContacts();
+
+    // Refresh contact detail if viewing, and update tab label
+    if (currentContact === data.id) {
+        const tab = openTabs.find(t => t.id === getTabId('contact', data.id));
+        if (tab) tab.label = data.name;
+        renderOpenTabs();
+        showContactView(data.id);
+    }
+
+    // Refresh community view if open (so new contact appears)
+    if (currentCommunity) showCommunityView(currentCommunity);
+
+    // If active status changed, prompt for notes (skip in setup mode)
+    if (statusChanged && !setupMode) {
+        pendingContactStatusNote = {
+            contactId: data.id,
+            contactName: data.name,
+            community: data.community,
+            action: statusChanged,
+        };
+        document.getElementById('contact-status-note-summary').innerHTML =
+            `<strong>${data.name}</strong> marked as <strong>${statusChanged === 'deactivated' ? 'Inactive' : 'Active'}</strong>`;
+        document.getElementById('contact-status-note-text').value = '';
+        document.getElementById('contact-status-note-date').value = nowDatetime();
+        openModal('modal-contact-status-note');
+    }
+}
+
+let pendingContactStatusNote = null;
+
+function saveContactStatusNote() {
+    if (!pendingContactStatusNote) return;
+    const p = pendingContactStatusNote;
+    const additionalInfo = document.getElementById('contact-status-note-text').value.trim();
+    const date = document.getElementById('contact-status-note-date').value || nowDatetime();
+
+    const noteText = p.action === 'deactivated'
+        ? `${p.contactName} marked as inactive.`
+        : `${p.contactName} reactivated.`;
+
+    const note = {
+        id: 'n' + Date.now() + Math.random().toString(36).slice(2, 5),
+        date: date,
+        type: 'Info Edit',
+        text: noteText,
+        additionalInfo: additionalInfo,
+        createdBy: getCurrentUserName(),
+        taggedSensors: [],
+        taggedCommunities: p.community ? [p.community] : [],
+        taggedContacts: [p.contactId],
+    };
+
+    notes.push(note);
+    persist();
+    pendingContactStatusNote = null;
+    closeModal('modal-contact-status-note');
+
+    if (currentContact === p.contactId) showContactView(p.contactId);
+    if (currentCommunity) showCommunityView(currentCommunity);
+}
+
+function skipContactStatusNote() {
+    if (!pendingContactStatusNote) return;
+    const p = pendingContactStatusNote;
+    const date = document.getElementById('contact-status-note-date').value || nowDatetime();
+
+    const noteText = p.action === 'deactivated'
+        ? `${p.contactName} marked as inactive.`
+        : `${p.contactName} reactivated.`;
+
+    const note = {
+        id: 'n' + Date.now() + Math.random().toString(36).slice(2, 5),
+        date: date,
+        type: 'Info Edit',
+        text: noteText,
+        createdBy: getCurrentUserName(),
+        taggedSensors: [],
+        taggedCommunities: p.community ? [p.community] : [],
+        taggedContacts: [p.contactId],
+    };
+
+    notes.push(note);
+    persist();
+    pendingContactStatusNote = null;
+    closeModal('modal-contact-status-note');
+
+    if (currentContact === p.contactId) showContactView(p.contactId);
+    if (currentCommunity) showCommunityView(currentCommunity);
 }
 
 function showContactDetail(contactId) {
     const c = contacts.find(x => x.id === contactId);
     if (!c) return;
+    trackRecent('contacts', contactId, 'viewed');
+    openTab('contact', contactId, c.name);
+    saveLastView('contact', contactId);
+    showContactView(contactId);
+}
+
+function showContactView(contactId) {
+    const c = contacts.find(x => x.id === contactId);
+    if (!c) return;
     currentContact = contactId;
 
-    document.getElementById('contact-detail-name').textContent = c.name;
+    document.getElementById('contact-detail-name').innerHTML = c.name + (c.active === false ? '<span class="contact-inactive-badge" style="margin-left:10px;font-size:12px">Inactive</span>' : '');
     document.getElementById('contact-info-card').innerHTML = `
         <div class="info-item"><label>Role</label><p>${c.role || '—'}</p></div>
         <div class="info-item"><label>Community</label><p><span class="clickable" onclick="showCommunity('${c.community}')">${getCommunityName(c.community)}</span></p></div>
         <div class="info-item"><label>Organization</label><p>${c.org || '—'}</p></div>
-        <div class="info-item"><label>Email</label><p>${c.email ? `<a href="mailto:${c.email}" class="clickable">${c.email}</a>` : '—'}</p></div>
+        <div class="info-item"><label>Email</label><p>${c.email ? `<a href="#" class="clickable" onclick="openQuickEmail('${c.id}')">${c.email}</a>` : '—'}</p></div>
         <div class="info-item"><label>Phone</label><p>${c.phone ? `<a href="tel:${c.phone}" class="clickable">${c.phone}</a>` : '—'}</p></div>
+        <div class="info-item"><label>Status</label><p>${c.active === false ? 'Inactive' : 'Active'}</p></div>
     `;
 
     // Combine notes and comms into one list
@@ -930,6 +1431,50 @@ function showContactDetail(contactId) {
 
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-contact-detail').classList.add('active');
+}
+
+function openEditCurrentContact() {
+    if (!currentContact) return;
+    const c = contacts.find(x => x.id === currentContact);
+    if (!c) return;
+    document.getElementById('contact-modal-title').textContent = 'Edit Contact';
+    document.getElementById('contact-edit-id').value = c.id;
+    document.getElementById('contact-name-input').value = c.name;
+    document.getElementById('contact-role-input').value = c.role || '';
+    populateCommunitySelect('contact-community-input');
+    document.getElementById('contact-community-input').value = c.community;
+    document.getElementById('contact-email-input').value = c.email || '';
+    document.getElementById('contact-phone-input').value = c.phone || '';
+    document.getElementById('contact-org-input').value = c.org || '';
+    // Set active/inactive
+    if (c.active === false) {
+        document.getElementById('contact-active-no').checked = true;
+    } else {
+        document.getElementById('contact-active-yes').checked = true;
+    }
+    // Show delete button
+    document.getElementById('delete-contact-btn').style.display = '';
+    openModal('modal-add-contact');
+}
+
+function deleteCurrentContact() {
+    if (!currentContact) return;
+    const c = contacts.find(x => x.id === currentContact);
+    if (!c) return;
+    if (!confirm(`Delete contact "${c.name}"? This cannot be undone.`)) return;
+
+    contacts = contacts.filter(x => x.id !== currentContact);
+    persist();
+    closeModal('modal-add-contact');
+
+    // Close the tab and go to contacts list
+    const tabId = getTabId('contact', currentContact);
+    const tabIdx = openTabs.findIndex(t => t.id === tabId);
+    if (tabIdx >= 0) openTabs.splice(tabIdx, 1);
+    activeTabId = null;
+    renderOpenTabs();
+    currentContact = null;
+    showView('contacts');
 }
 
 function openContactCommModal() {
@@ -956,9 +1501,9 @@ function openEmailModal() {
 function renderEmailRecipients() {
     const list = document.getElementById('email-recipients-list');
 
-    // Group contacts by community alphabetically
+    // Group active contacts by community alphabetically
     const groups = {};
-    contacts.forEach(c => {
+    contacts.filter(c => c.active !== false).forEach(c => {
         const commName = getCommunityName(c.community);
         if (!groups[commName]) groups[commName] = [];
         groups[commName].push(c);
@@ -1004,8 +1549,8 @@ function emailFilterByCommunity() {
         return;
     }
 
-    // Show only contacts from the selected community
-    const filtered = contacts.filter(c => c.community === commId);
+    // Show only active contacts from the selected community
+    const filtered = contacts.filter(c => c.community === commId && c.active !== false);
     const list = document.getElementById('email-recipients-list');
     const commName = getCommunityName(commId);
 
@@ -1040,6 +1585,11 @@ function sendEmail() {
         return;
     }
 
+    if (!subject || !body) {
+        alert('Please enter both a subject and body before sending.');
+        return;
+    }
+
     // Open mailto link (works with Outlook and other mail clients)
     const mailtoLink = `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
@@ -1064,6 +1614,30 @@ function sendEmail() {
     comms.push(comm);
     persist();
     closeModal('modal-email');
+}
+
+function openQuickEmail(contactId) {
+    const c = contacts.find(x => x.id === contactId);
+    if (!c || !c.email) return;
+
+    // Open the email modal with just this contact selected
+    populateCommunitySelect('email-community-filter');
+
+    // Render only this contact as a recipient
+    const list = document.getElementById('email-recipients-list');
+    list.innerHTML = `
+        <div class="email-community-header">${getCommunityName(c.community)}</div>
+        <div class="email-recipient-row">
+            <input type="checkbox" id="email-cb-${c.id}" data-contact-id="${c.id}" data-community="${c.community}" checked>
+            <label for="email-cb-${c.id}">${c.name}</label>
+            <span class="recipient-community">${c.email}</span>
+        </div>
+    `;
+
+    document.getElementById('email-subject').value = '';
+    document.getElementById('email-body').value = '';
+    document.getElementById('email-community-filter').value = c.community;
+    openModal('modal-email');
 }
 
 // ===== NOTES =====
@@ -1142,8 +1716,8 @@ function saveNote(e) {
     persist();
     closeModal('modal-add-note');
 
-    if (currentCommunity) showCommunity(currentCommunity);
-    if (currentSensor) showSensorDetail(currentSensor);
+    if (currentCommunity) showCommunityView(currentCommunity);
+    if (currentSensor) showSensorView(currentSensor);
 }
 
 // ===== COMMUNICATIONS =====
@@ -1185,7 +1759,7 @@ function saveComm(e) {
     persist();
     closeModal('modal-comm');
 
-    if (currentCommunity) showCommunity(currentCommunity);
+    if (currentCommunity) showCommunityView(currentCommunity);
 }
 
 // ===== TIMELINE RENDERER =====
@@ -1394,6 +1968,62 @@ function parseMentionedContacts(text) {
     return mentioned;
 }
 
+// ===== ADD COMMUNITY =====
+let newCommunitySelectedTags = [];
+
+function openAddCommunityModal() {
+    document.getElementById('community-name-input').value = '';
+    newCommunitySelectedTags = [];
+    renderNewCommunityTags();
+    openModal('modal-add-community');
+}
+
+function renderNewCommunityTags() {
+    const allTags = getAllTags();
+    document.getElementById('new-community-tags').innerHTML = allTags.map(tag => {
+        const isActive = newCommunitySelectedTags.includes(tag);
+        return `<span class="edit-tag-option ${isActive ? 'active' : ''}" onclick="toggleNewCommunityTag('${tag.replace(/'/g, "\\'")}')">${tag}</span>`;
+    }).join('');
+}
+
+function toggleNewCommunityTag(tag) {
+    if (newCommunitySelectedTags.includes(tag)) {
+        newCommunitySelectedTags = newCommunitySelectedTags.filter(t => t !== tag);
+    } else {
+        newCommunitySelectedTags.push(tag);
+    }
+    renderNewCommunityTags();
+}
+
+function saveCommunity(e) {
+    e.preventDefault();
+    const name = document.getElementById('community-name-input').value.trim();
+    if (!name) return;
+
+    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    // Check for duplicates
+    if (COMMUNITIES.find(c => c.id === id)) {
+        alert('A community with that name already exists.');
+        return;
+    }
+
+    // Add to communities list (sorted)
+    COMMUNITIES.push({ id, name });
+    COMMUNITIES.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Set tags if any selected
+    if (newCommunitySelectedTags.length > 0) {
+        communityTags[id] = [...newCommunitySelectedTags];
+    }
+
+    persist();
+    buildSidebar();
+    closeModal('modal-add-community');
+    renderCommunitiesList();
+    showCommunity(id);
+}
+
 // ===== COMMUNITY TAG EDITING =====
 let editingTagsCommunity = null;
 
@@ -1436,7 +2066,7 @@ function toggleCommunityTag(tag) {
             taggedCommunities: [editingTagsCommunity],
             taggedContacts: [],
         };
-        notes.push(note);
+        if (!setupMode) notes.push(note);
     } else {
         // Add tag
         if (!communityTags[editingTagsCommunity]) communityTags[editingTagsCommunity] = [];
@@ -1452,13 +2082,15 @@ function toggleCommunityTag(tag) {
             taggedCommunities: [editingTagsCommunity],
             taggedContacts: [],
         };
-        notes.push(note);
+        if (!setupMode) notes.push(note);
     }
 
+    trackRecent('communities', editingTagsCommunity, 'edited');
     persist();
     renderEditTagsList();
+    buildSidebar(); // Update sidebar tag list
     // Refresh community view if it's showing
-    if (currentCommunity === editingTagsCommunity) showCommunity(editingTagsCommunity);
+    if (currentCommunity === editingTagsCommunity) showCommunityView(editingTagsCommunity);
 }
 
 function addCustomTag() {
@@ -1485,13 +2117,14 @@ function addCustomTag() {
             taggedCommunities: [editingTagsCommunity],
             taggedContacts: [],
         };
-        notes.push(note);
+        if (!setupMode) notes.push(note);
         persist();
     }
 
     input.value = '';
     renderEditTagsList();
-    if (currentCommunity === editingTagsCommunity) showCommunity(editingTagsCommunity);
+    buildSidebar(); // Update sidebar with new tag
+    if (currentCommunity === editingTagsCommunity) showCommunityView(editingTagsCommunity);
 }
 
 // ===== STATUS TOGGLE LIST =====
