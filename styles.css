@@ -2168,15 +2168,17 @@ tr:last-child td {
 }
 
 .sidebar-settings-btn {
-    font-size: 14px;
-    color: var(--slate-500);
+    font-size: 20px;
+    color: var(--slate-400);
     cursor: pointer;
-    transition: color 0.15s ease;
-    padding: 2px;
+    transition: all 0.2s ease;
+    padding: 4px;
+    border-radius: 4px;
 }
 
 .sidebar-settings-btn:hover {
     color: var(--gold-300);
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-user .user-logout {
