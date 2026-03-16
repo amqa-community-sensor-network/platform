@@ -2,18 +2,18 @@
 const SUPABASE_URL = 'https://uejryzioxogquflijgyf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlanJ5emlveG9ncXVmbGlqZ3lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2OTkyODMsImV4cCI6MjA4OTI3NTI4M30.YD349-X2PeoeCTVp34FbzdGwachr9YCpzIPSXuSURfM';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ===== AUTH =====
 const db = {
     // --- Auth ---
     async signUp(email, password, name) {
         // Check allowed list first
-        const { data: allowed, error: checkErr } = await supabase.rpc('is_email_allowed', { check_email: email });
+        const { data: allowed, error: checkErr } = await supa.rpc('is_email_allowed', { check_email: email });
         if (checkErr) throw checkErr;
         if (!allowed) throw new Error('Email not authorized. Contact your administrator.');
 
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await supa.auth.signUp({
             email,
             password,
             options: { data: { name } }
@@ -22,7 +22,7 @@ const db = {
 
         // Create profile
         if (data.user) {
-            await supabase.rpc('upsert_profile', {
+            await supa.rpc('upsert_profile', {
                 user_id: data.user.id,
                 user_email: email,
                 user_name: name,
@@ -33,71 +33,71 @@ const db = {
     },
 
     async signIn(email, password) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supa.auth.signInWithPassword({ email, password });
         if (error) throw error;
         return data;
     },
 
     async signOut() {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supa.auth.signOut();
         if (error) throw error;
     },
 
     async getSession() {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supa.auth.getSession();
         return session;
     },
 
     async getProfile() {
         const session = await this.getSession();
         if (!session) return null;
-        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        const { data } = await supa.from('profiles').select('*').eq('id', session.user.id).single();
         return data;
     },
 
     // --- Communities ---
     async getCommunities() {
-        const { data, error } = await supabase.from('communities').select('*').order('name');
+        const { data, error } = await supa.from('communities').select('*').order('name');
         if (error) throw error;
         return data || [];
     },
 
     async insertCommunity(community) {
-        const { error } = await supabase.from('communities').insert(community);
+        const { error } = await supa.from('communities').insert(community);
         if (error) throw error;
     },
 
     async updateCommunity(id, updates) {
-        const { error } = await supabase.from('communities').update(updates).eq('id', id);
+        const { error } = await supa.from('communities').update(updates).eq('id', id);
         if (error) throw error;
     },
 
     // --- Community Tags ---
     async getCommunityTags() {
-        const { data, error } = await supabase.from('community_tags').select('*');
+        const { data, error } = await supa.from('community_tags').select('*');
         if (error) throw error;
         return data || [];
     },
 
     async setCommunityTags(communityId, tags) {
         // Delete existing then insert new
-        await supabase.from('community_tags').delete().eq('community_id', communityId);
+        await supa.from('community_tags').delete().eq('community_id', communityId);
         if (tags.length > 0) {
             const rows = tags.map(tag => ({ community_id: communityId, tag }));
-            const { error } = await supabase.from('community_tags').insert(rows);
+            const { error } = await supa.from('community_tags').insert(rows);
             if (error) throw error;
         }
     },
 
     // --- Sensors ---
     async getSensors() {
-        const { data, error } = await supabase.from('sensors').select('*').order('id');
+        const { data, error } = await supa.from('sensors').select('*').order('id');
         if (error) throw error;
         return data || [];
     },
 
     async upsertSensor(sensor) {
-        const { error } = await supabase.from('sensors').upsert({
+        const { error } = await supa.from('sensors').upsert({
             id: sensor.id,
             soa_tag_id: sensor.soaTagId || '',
             type: sensor.type,
@@ -112,13 +112,13 @@ const db = {
     },
 
     async deleteSensor(id) {
-        const { error } = await supabase.from('sensors').delete().eq('id', id);
+        const { error } = await supa.from('sensors').delete().eq('id', id);
         if (error) throw error;
     },
 
     // --- Contacts ---
     async getContacts() {
-        const { data, error } = await supabase.from('contacts').select('*').order('name');
+        const { data, error } = await supa.from('contacts').select('*').order('name');
         if (error) throw error;
         return data || [];
     },
@@ -137,22 +137,22 @@ const db = {
             // Existing UUID — update
             row.id = contact.id;
         }
-        const { data, error } = await supabase.from('contacts').upsert(row).select();
+        const { data, error } = await supa.from('contacts').upsert(row).select();
         if (error) throw error;
         return data?.[0];
     },
 
     async deleteContact(id) {
-        const { error } = await supabase.from('contacts').delete().eq('id', id);
+        const { error } = await supa.from('contacts').delete().eq('id', id);
         if (error) throw error;
     },
 
     // --- Notes ---
     async getNotes() {
-        const { data: notesData, error: notesError } = await supabase.from('notes').select('*').order('date', { ascending: false });
+        const { data: notesData, error: notesError } = await supa.from('notes').select('*').order('date', { ascending: false });
         if (notesError) throw notesError;
 
-        const { data: tagsData, error: tagsError } = await supabase.from('note_tags').select('*');
+        const { data: tagsData, error: tagsError } = await supa.from('note_tags').select('*');
         if (tagsError) throw tagsError;
 
         // Merge tags into notes
@@ -173,7 +173,7 @@ const db = {
     },
 
     async insertNote(note) {
-        const { data, error } = await supabase.from('notes').insert({
+        const { data, error } = await supa.from('notes').insert({
             date: note.date,
             type: note.type,
             text: note.text,
@@ -191,7 +191,7 @@ const db = {
         (note.taggedContacts || []).forEach(id => tagRows.push({ note_id: noteId, tag_type: 'contact', tag_id: id }));
 
         if (tagRows.length > 0) {
-            const { error: tagError } = await supabase.from('note_tags').insert(tagRows);
+            const { error: tagError } = await supa.from('note_tags').insert(tagRows);
             if (tagError) throw tagError;
         }
 
@@ -200,10 +200,10 @@ const db = {
 
     // --- Communications ---
     async getComms() {
-        const { data: commsData, error: commsError } = await supabase.from('comms').select('*').order('date', { ascending: false });
+        const { data: commsData, error: commsError } = await supa.from('comms').select('*').order('date', { ascending: false });
         if (commsError) throw commsError;
 
-        const { data: tagsData, error: tagsError } = await supabase.from('comm_tags').select('*');
+        const { data: tagsData, error: tagsError } = await supa.from('comm_tags').select('*');
         if (tagsError) throw tagsError;
 
         return (commsData || []).map(comm => {
@@ -225,7 +225,7 @@ const db = {
     },
 
     async insertComm(comm) {
-        const { data, error } = await supabase.from('comms').insert({
+        const { data, error } = await supa.from('comms').insert({
             date: comm.date,
             comm_type: comm.commType,
             text: comm.text,
@@ -243,7 +243,7 @@ const db = {
         (comm.taggedCommunities || []).forEach(id => tagRows.push({ comm_id: commId, tag_type: 'community', tag_id: id }));
 
         if (tagRows.length > 0) {
-            const { error: tagError } = await supabase.from('comm_tags').insert(tagRows);
+            const { error: tagError } = await supa.from('comm_tags').insert(tagRows);
             if (tagError) throw tagError;
         }
 
@@ -252,19 +252,19 @@ const db = {
 
     // --- Community Files ---
     async getCommunityFiles() {
-        const { data, error } = await supabase.from('community_files').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supa.from('community_files').select('*').order('created_at', { ascending: false });
         if (error) throw error;
         return data || [];
     },
 
     async uploadFile(communityId, file, uploadedBy) {
         const path = `${communityId}/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from('community-files').upload(path, file);
+        const { error: uploadError } = await supa.storage.from('community-files').upload(path, file);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage.from('community-files').getPublicUrl(path);
+        const { data: urlData } = supa.storage.from('community-files').getPublicUrl(path);
 
-        const { data, error } = await supabase.from('community_files').insert({
+        const { data, error } = await supa.from('community_files').insert({
             community_id: communityId,
             file_name: file.name,
             file_type: file.type,
@@ -277,18 +277,18 @@ const db = {
     },
 
     async deleteFile(fileId, storagePath) {
-        await supabase.storage.from('community-files').remove([storagePath]);
-        const { error } = await supabase.from('community_files').delete().eq('id', fileId);
+        await supa.storage.from('community-files').remove([storagePath]);
+        const { error } = await supa.from('community_files').delete().eq('id', fileId);
         if (error) throw error;
     },
 
     getFileUrl(storagePath) {
-        const { data } = supabase.storage.from('community-files').getPublicUrl(storagePath);
+        const { data } = supa.storage.from('community-files').getPublicUrl(storagePath);
         return data?.publicUrl || '';
     },
 
     async getSignedUrl(storagePath) {
-        const { data, error } = await supabase.storage.from('community-files').createSignedUrl(storagePath, 3600);
+        const { data, error } = await supa.storage.from('community-files').createSignedUrl(storagePath, 3600);
         if (error) throw error;
         return data?.signedUrl || '';
     },
