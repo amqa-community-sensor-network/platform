@@ -1,61 +1,15 @@
-// ===== DATA LAYER =====
-const COMMUNITIES = [
-    { id: 'anchorage', name: 'Anchorage' },
-    { id: 'anc-garden', name: 'Garden' },
-    { id: 'anc-lab', name: 'Anc Lab' },
-    { id: 'anne-wien-elementary', name: 'Anne Wien Elementary School' },
-    { id: 'badger', name: 'Badger' },
-    { id: 'bethel', name: 'Bethel' },
-    { id: 'big-lake', name: 'Big Lake' },
-    { id: 'campbell-creek-science-center', name: 'Campbell Creek Science Center' },
-    { id: 'chickaloon', name: 'Chickaloon' },
-    { id: 'cordova', name: 'Cordova' },
-    { id: 'delta-junction', name: 'Delta Junction' },
-    { id: 'fairbanks', name: 'Fairbanks' },
-    { id: 'fbx-lab', name: 'Fbx Lab' },
-    { id: 'fbx-ncore', name: 'NCore' },
-    { id: 'galena', name: 'Galena' },
-    { id: 'gerstle-river', name: 'Gerstle River' },
-    { id: 'glennallen', name: 'Glennallen' },
-    { id: 'goldstream', name: 'Goldstream' },
-    { id: 'haines', name: 'Haines' },
-    { id: 'homer', name: 'Homer' },
-    { id: 'hoonah', name: 'Hoonah' },
-    { id: 'jnu-5th-street', name: '5th Street' },
-    { id: 'jnu-alaska-state-museum', name: 'Alaska State Museum' },
-    { id: 'jnu-floyd-dryden', name: 'Floyd Dryden' },
-    { id: 'jnu-lab', name: 'Jnu Lab' },
-    { id: 'juneau', name: 'Juneau' },
-    { id: 'kenai', name: 'Kenai' },
-    { id: 'ketchikan', name: 'Ketchikan' },
-    { id: 'kodiak', name: 'Kodiak' },
-    { id: 'kotzebue', name: 'Kotzebue' },
-    { id: 'napaskiak', name: 'Napaskiak' },
-    { id: 'nenana', name: 'Nenana' },
-    { id: 'ninilchik', name: 'Ninilchik' },
-    { id: 'nome', name: 'Nome' },
-    { id: 'palmer', name: 'Palmer' },
-    { id: 'salcha', name: 'Salcha' },
-    { id: 'seward', name: 'Seward' },
-    { id: 'sitka', name: 'Sitka' },
-    { id: 'skagway', name: 'Skagway' },
-    { id: 'soldotna', name: 'Soldotna' },
-    { id: 'talkeetna', name: 'Talkeetna' },
-    { id: 'tok', name: 'Tok' },
-    { id: 'tyonek', name: 'Tyonek' },
-    { id: 'valdez', name: 'Valdez' },
-    { id: 'wasilla', name: 'Wasilla' },
-    { id: 'willow', name: 'Willow' },
-    { id: 'wrangell', name: 'Wrangell' },
-    { id: 'yakutat', name: 'Yakutat' },
-];
+// ===== DATA LAYER (Supabase-backed) =====
+// In-memory arrays — loaded from Supabase on init, kept in sync
+let COMMUNITIES = [];
+let AVAILABLE_TAGS = [];
 
-const AVAILABLE_TAGS = [
-    'Regulatory Site',
-    'Municipality of Anchorage Network',
-    'Interior Network',
-    'BLM',
-];
+let sensors = [];
+let contacts = [];
+let notes = [];
+let comms = [];
+let communityFiles = {};
+let communityTags = {};
+let communityParents = {}; // childId -> parentId
 
 function loadData(key, fallback) {
     try {
@@ -68,44 +22,108 @@ function saveData(key, data) {
     localStorage.setItem('snt_' + key, JSON.stringify(data));
 }
 
-let sensors = loadData('sensors', []);
-let contacts = loadData('contacts', []);
-let notes = loadData('notes', []);
-let comms = loadData('comms', []);
-let communityFiles = loadData('communityFiles', {});
-let communityTags = loadData('communityTags', {});
-let communityParents = loadData('communityParents', {}); // childId -> parentId
+// Load all data from Supabase into memory
+async function loadAllData() {
+    const [communitiesData, tagsData, sensorsData, contactsData, notesData, commsData, filesData] = await Promise.all([
+        db.getCommunities(),
+        db.getCommunityTags(),
+        db.getSensors(),
+        db.getContacts(),
+        db.getNotes(),
+        db.getComms(),
+        db.getCommunityFiles(),
+    ]);
 
-// Initialize default tags if empty
-if (Object.keys(communityTags).length === 0) {
-    communityTags = {
-        'anc-garden': ['Regulatory Site'],
-        'fbx-ncore': ['Regulatory Site'],
-        'jnu-floyd-dryden': ['Regulatory Site'],
-        glennallen: ['BLM'],
-        talkeetna: ['BLM'],
-    };
-    saveData('communityTags', communityTags);
+    // Communities
+    COMMUNITIES = communitiesData.map(c => ({ id: c.id, name: c.name }));
+    communityParents = {};
+    communitiesData.forEach(c => {
+        if (c.parent_id) communityParents[c.id] = c.parent_id;
+    });
+
+    // Tags
+    communityTags = {};
+    tagsData.forEach(t => {
+        if (!communityTags[t.community_id]) communityTags[t.community_id] = [];
+        communityTags[t.community_id].push(t.tag);
+    });
+    // Build AVAILABLE_TAGS from all unique tags
+    AVAILABLE_TAGS = [...new Set(tagsData.map(t => t.tag))].sort();
+
+    // Sensors — map DB columns to app format
+    sensors = sensorsData.map(s => ({
+        id: s.id,
+        soaTagId: s.soa_tag_id || '',
+        type: s.type || 'Community Pod',
+        status: s.status || [],
+        community: s.community_id || '',
+        location: s.location || '',
+        datePurchased: s.date_purchased || '',
+        collocationDates: s.collocation_dates || '',
+    }));
+
+    // Contacts — map DB columns to app format
+    contacts = contactsData.map(c => ({
+        id: c.id,
+        name: c.name,
+        role: c.role || '',
+        community: c.community_id || '',
+        email: c.email || '',
+        phone: c.phone || '',
+        org: c.org || '',
+        active: c.active !== false,
+    }));
+
+    // Notes — already mapped by db.getNotes()
+    notes = notesData;
+
+    // Comms — already mapped by db.getComms()
+    comms = commsData;
+
+    // Files — group by community
+    communityFiles = {};
+    filesData.forEach(f => {
+        if (!communityFiles[f.community_id]) communityFiles[f.community_id] = [];
+        communityFiles[f.community_id].push({
+            id: f.id,
+            name: f.file_name,
+            type: f.file_type,
+            storagePath: f.storage_path,
+            date: f.created_at,
+        });
+    });
 }
 
-// Initialize default parent relationships if empty
-if (Object.keys(communityParents).length === 0) {
-    communityParents = {
-        // Fairbanks sub-communities
-        'fbx-ncore': 'fairbanks',
-        'fbx-lab': 'fairbanks',
-        'anne-wien-elementary': 'fairbanks',
-        // Anchorage sub-communities
-        'anc-garden': 'anchorage',
-        'anc-lab': 'anchorage',
-        'campbell-creek-science-center': 'anchorage',
-        // Juneau sub-communities
-        'jnu-lab': 'juneau',
-        'jnu-floyd-dryden': 'juneau',
-        'jnu-5th-street': 'juneau',
-        'jnu-alaska-state-museum': 'juneau',
-    };
-    saveData('communityParents', communityParents);
+// persist() pushes all changed data to Supabase
+// Called after local array modifications — fires async writes in background
+function persist() {
+    // Sensors: upsert all (Supabase handles duplicates via primary key)
+    sensors.forEach(s => db.upsertSensor(s).catch(err => console.error('Sensor save error:', err)));
+}
+
+// Targeted persist functions for specific operations
+function persistSensor(sensorData) {
+    db.upsertSensor(sensorData).catch(err => console.error('Sensor save error:', err));
+}
+
+function persistContact(contactData) {
+    return db.upsertContact(contactData).catch(err => console.error('Contact save error:', err));
+}
+
+function persistNote(noteData) {
+    return db.insertNote(noteData).catch(err => console.error('Note save error:', err));
+}
+
+function persistComm(commData) {
+    return db.insertComm(commData).catch(err => console.error('Comm save error:', err));
+}
+
+function persistCommunityTags(communityId, tags) {
+    db.setCommunityTags(communityId, tags).catch(err => console.error('Tag save error:', err));
+}
+
+function persistCommunity(community) {
+    db.insertCommunity(community).catch(err => console.error('Community save error:', err));
 }
 
 function getCommunityTags(communityId) {
@@ -152,144 +170,96 @@ function trackRecent(type, id, action) {
     saveData('recentActivity', recentActivity);
 }
 
-// Load sample data on first run
-if (sensors.length === 0 && contacts.length === 0) {
-    sensors = [
-        { id: 'MOD-00442', soaTagId: '', type: 'Community Pod', status: [], community: 'napaskiak', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00443', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00444', soaTagId: '', type: 'Community Pod', status: [], community: 'wrangell', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00445', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: 'anc-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00446', soaTagId: '', type: 'Community Pod', status: [], community: 'galena', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00447', soaTagId: '', type: 'Community Pod', status: [], community: 'delta-junction', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00448', soaTagId: '', type: 'Community Pod', status: [], community: 'goldstream', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00449', soaTagId: '', type: 'Community Pod', status: [], community: 'ketchikan', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00450', soaTagId: '', type: 'Community Pod', status: [], community: 'haines', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00451', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: 'anc-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00452', soaTagId: '', type: 'Community Pod', status: [], community: 'hoonah', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00453', soaTagId: '', type: 'Community Pod', status: [], community: 'skagway', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00454', soaTagId: '', type: 'Community Pod', status: [], community: 'sitka', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00455', soaTagId: '', type: 'Community Pod', status: [], community: 'jnu-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00456', soaTagId: '', type: 'Community Pod', status: [], community: 'jnu-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00458', soaTagId: '', type: 'Community Pod', status: [], community: 'valdez', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00459', soaTagId: '', type: 'Community Pod', status: [], community: 'soldotna', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00460', soaTagId: '', type: 'Audit Pod', status: [], community: 'anc-garden', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00461', soaTagId: '', type: 'Community Pod', status: [], community: 'ninilchik', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00462', soaTagId: '', type: 'Community Pod', status: [], community: 'campbell-creek-science-center', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00463', soaTagId: '', type: 'Permanent Pod', status: [], community: 'anc-garden', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00464', soaTagId: '', type: 'Community Pod', status: [], community: 'homer', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00465', soaTagId: '', type: 'Community Pod', status: [], community: 'seward', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00466', soaTagId: '', type: 'Community Pod', status: [], community: 'glennallen', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00467', soaTagId: '', type: 'Community Pod', status: [], community: 'talkeetna', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00468', soaTagId: '', type: 'Community Pod', status: [], community: 'big-lake', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00469', soaTagId: '', type: 'Community Pod', status: [], community: 'tyonek', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00470', soaTagId: '', type: 'Community Pod', status: [], community: 'willow', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00471', soaTagId: '', type: 'Audit Pod', status: [], community: 'anc-garden', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00649', soaTagId: '', type: 'Community Pod', status: [], community: 'chickaloon', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00650', soaTagId: '', type: 'Community Pod', status: [], community: 'kenai', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00651', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00652', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00653', soaTagId: '', type: 'Community Pod', status: [], community: 'tok', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00654', soaTagId: '', type: 'Community Pod', status: [], community: 'nome', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00655', soaTagId: '', type: 'Community Pod', status: [], community: 'nenana', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00656', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00657', soaTagId: '', type: 'Community Pod', status: [], community: 'palmer', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00658', soaTagId: '', type: 'Community Pod', status: [], community: 'yakutat', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00659', soaTagId: '', type: 'Community Pod', status: [], community: 'bethel', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00660', soaTagId: '', type: 'Community Pod', status: [], community: 'kodiak', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00662', soaTagId: '', type: 'Community Pod', status: [], community: 'kotzebue', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00663', soaTagId: '', type: 'Community Pod', status: [], community: 'wasilla', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00664', soaTagId: '', type: 'Community Pod', status: [], community: 'badger', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00665', soaTagId: '', type: 'Audit Pod', status: [], community: 'jnu-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00666', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00667', soaTagId: '', type: 'Community Pod', status: [], community: 'cordova', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00668', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00669', soaTagId: '', type: 'Permanent Pod', status: [], community: 'jnu-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00670', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00671', soaTagId: '', type: 'Community Pod', status: [], community: 'anne-wien-elementary', location: 'Anne Wien Elementary School', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00672', soaTagId: '', type: 'Community Pod', status: [], community: 'salcha', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00673', soaTagId: '', type: 'Community Pod', status: [], community: 'gerstle-river', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-00674', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01656', soaTagId: '', type: 'Community Pod', status: [], community: 'anc-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01657', soaTagId: '', type: 'Community Pod', status: [], community: 'anc-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01658', soaTagId: '', type: 'Community Pod', status: ['Lab Storage'], community: '', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01754', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01755', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01757', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01758', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01759', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01760', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01761', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01762', soaTagId: '', type: 'Community Pod', status: [], community: 'anc-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01763', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01764', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01765', soaTagId: '', type: 'Community Pod', status: [], community: 'anc-lab', location: '', datePurchased: '', collocationDates: '' },
-        { id: 'MOD-X-PM-01766', soaTagId: '', type: 'Community Pod', status: [], community: 'fbx-ncore', location: '', datePurchased: '', collocationDates: '' },
-    ];
-    contacts = [
-        { id: 'c1', name: 'Patricia Valerio', role: 'Tribal Environmental Coordinator', community: 'kodiak', email: 'pvalerio@example.com', phone: '907-555-0101', org: 'Kodiak Area Native Association' },
-        { id: 'c2', name: 'Kim Sweet', role: 'Village Administrator', community: 'bethel', email: 'ksweet@example.com', phone: '907-555-0202', org: 'Orutsararmiut Native Council' },
-        { id: 'c3', name: 'James Dalton', role: 'School Principal', community: 'wrangell', email: 'jdalton@example.com', phone: '907-555-0303', org: 'Wrangell Public Schools' },
-        { id: 'c4', name: 'Maria Chen', role: 'Librarian', community: 'homer', email: 'mchen@example.com', phone: '907-555-0404', org: 'Homer Public Library' },
-    ];
-    notes = [
-        {
-            id: 'n1',
-            date: '2026-03-13',
-            type: 'Audit',
-            text: 'Kodiak sensor MOD-00660 audited by Anchorage audit pod MOD-00471 from March 5 - March 13, 2026, with coordination assistance by @Patricia Valerio.',
-            taggedSensors: ['MOD-00660', 'MOD-00471'],
-            taggedCommunities: ['kodiak', 'anchorage'],
-            taggedContacts: ['c1'],
-        }
-    ];
-    persist();
-}
-
-// ===== USER SYSTEM =====
-let appUsers = loadData('appUsers', []);
+// ===== USER SYSTEM (Supabase Auth) =====
 let currentUser = null;
+let currentUserId = null;
 
 function showLoginScreen() {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
+    document.getElementById('login-loading').style.display = 'none';
+    document.getElementById('login-form-section').style.display = '';
+    document.getElementById('signup-form-section').style.display = 'none';
+}
 
-    const list = document.getElementById('login-user-list');
-    if (appUsers.length > 0) {
-        list.innerHTML = appUsers.map(u =>
-            `<button class="login-user-btn" onclick="loginUser('${u.replace(/'/g, "\\'")}')">
-                ${u}
-            </button>`
-        ).join('');
-    } else {
-        list.innerHTML = '';
+function showSignUpForm() {
+    document.getElementById('login-form-section').style.display = 'none';
+    document.getElementById('signup-form-section').style.display = '';
+    hideLoginError();
+}
+
+function showSignInForm() {
+    document.getElementById('login-form-section').style.display = '';
+    document.getElementById('signup-form-section').style.display = 'none';
+    hideLoginError();
+}
+
+function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = msg;
+    el.classList.add('visible');
+}
+
+function hideLoginError() {
+    document.getElementById('login-error').classList.remove('visible');
+}
+
+async function handleSignIn() {
+    hideLoginError();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) { showLoginError('Please enter email and password.'); return; }
+
+    try {
+        await db.signIn(email, password);
+        await enterApp();
+    } catch (err) {
+        showLoginError(err.message || 'Sign in failed.');
     }
 }
 
-function loginUser(name) {
-    currentUser = name;
-    saveData('currentUser', name);
+async function handleSignUp() {
+    hideLoginError();
+    const name = document.getElementById('signup-name').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    if (!name || !email || !password) { showLoginError('Please fill in all fields.'); return; }
+    if (password.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
+
+    try {
+        await db.signUp(email, password, name);
+        showLoginError('');
+        alert('Account created! Check your email to confirm, then sign in.');
+        showSignInForm();
+    } catch (err) {
+        showLoginError(err.message || 'Sign up failed. Your email may not be authorized.');
+    }
+}
+
+async function enterApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('login-loading').style.display = '';
+
+    const profile = await db.getProfile();
+    currentUser = profile?.name || profile?.email || 'User';
+    currentUserId = profile?.id || null;
+
+    await loadAllData();
+
+    document.getElementById('login-loading').style.display = 'none';
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     document.getElementById('sidebar-user').innerHTML =
         `<span class="user-name">${currentUser}</span><span class="user-logout">Sign out</span>`;
     renderSetupModeIndicator();
+    buildSidebar();
     restoreLastView();
 }
 
-function addAndLoginUser() {
-    const input = document.getElementById('login-new-name');
-    const name = input.value.trim();
-    if (!name) return;
-    if (!appUsers.includes(name)) {
-        appUsers.push(name);
-        saveData('appUsers', appUsers);
-    }
-    loginUser(name);
-}
-
-function logoutUser() {
+async function logoutUser() {
+    await db.signOut();
     currentUser = null;
-    saveData('currentUser', null);
+    currentUserId = null;
     showLoginScreen();
 }
 
@@ -819,7 +789,7 @@ function inlineSaveSensor(el) {
     } else {
         s[field] = el.value.trim();
     }
-    persist();
+    persistSensor(s);
 }
 
 function inlineSaveContact(el) {
@@ -839,7 +809,7 @@ function inlineSaveContact(el) {
         if (tab) tab.label = c.name;
         renderOpenTabs();
     }
-    persist();
+    persistContact(c);
 }
 
 function openAddSensorModal() {
@@ -921,7 +891,7 @@ function saveSensor(e) {
         const idx = sensors.findIndex(s => s.id === editId);
         if (idx >= 0) sensors[idx] = data;
         trackRecent('sensors', data.id, 'edited');
-        persist();
+        persistSensor(data);
         closeModal('modal-add-sensor');
         renderSensors();
 
@@ -946,7 +916,7 @@ function saveSensor(e) {
             return;
         }
         sensors.push(data);
-        persist();
+        persistSensor(data);
         closeModal('modal-add-sensor');
         renderSensors();
     }
@@ -1005,7 +975,8 @@ function saveEditAnnotation() {
     const additionalInfo = document.getElementById('edit-annotation-text').value.trim();
     const date = document.getElementById('edit-annotation-date').value || nowDatetime();
 
-    notes.push(buildAnnotationNote(annotation, additionalInfo, date));
+    const _annNote1 = buildAnnotationNote(annotation, additionalInfo, date);
+    notes.push(_annNote1); persistNote(_annNote1);
     persist();
     closeModal('modal-edit-annotation');
 
@@ -1016,7 +987,8 @@ function skipEditAnnotation() {
     const annotation = pendingAnnotations.shift();
     const date = document.getElementById('edit-annotation-date').value || nowDatetime();
 
-    notes.push(buildAnnotationNote(annotation, '', date));
+    const _annNote2 = buildAnnotationNote(annotation, '', date);
+    notes.push(_annNote2); persistNote(_annNote2);
     persist();
     closeModal('modal-edit-annotation');
 
@@ -1058,6 +1030,7 @@ function saveStatusChange(e) {
     if (!s) return;
 
     s.status = newStatuses;
+    persistSensor(s);
 
     let noteText = `${sensorId} status changed from "${oldStr}" to "${newStr}".`;
 
@@ -1075,7 +1048,7 @@ function saveStatusChange(e) {
         taggedContacts: mentionedContacts,
     };
 
-    if (!setupMode) notes.push(note);
+    if (!setupMode) { notes.push(note); persistNote(note); }
     persist();
     closeModal('modal-status-change');
     renderSensors();
@@ -1114,6 +1087,7 @@ function moveSensor(e) {
     const toName = getCommunityName(toCommunityId);
 
     s.community = toCommunityId;
+    persistSensor(s);
 
     let noteText = `${sensorId} removed from ${fromName} and brought to ${toName}.`;
 
@@ -1132,7 +1106,7 @@ function moveSensor(e) {
         taggedContacts: mentionedContacts,
     };
 
-    if (!setupMode) notes.push(note);
+    if (!setupMode) { notes.push(note); persistNote(note); }
     persist();
     closeModal('modal-move-sensor');
     renderSensors();
@@ -1221,7 +1195,7 @@ function inlineEditSensor(sensorId, field) {
     if (newVal === null || newVal.trim() === oldVal) return;
 
     s[field] = newVal.trim();
-    persist();
+    persistSensor(s);
     showSensorView(sensorId);
 
     // Queue annotation for this change (skip in setup mode)
@@ -1268,7 +1242,7 @@ function selectSensorType(newType) {
 
     s.type = newType;
     trackRecent('sensors', typeChangeSensorId, 'edited');
-    persist();
+    persistSensor(s);
     closeModal('modal-type-change');
     showSensorView(typeChangeSensorId);
 
@@ -1434,26 +1408,27 @@ function showCommunityView(communityId) {
 }
 
 // ===== FILES =====
-function handleFileUpload(event) {
+async function handleFileUpload(event) {
     const files = event.target.files;
     if (!files.length || !currentCommunity) return;
 
     if (!communityFiles[currentCommunity]) communityFiles[currentCommunity] = [];
 
     for (const file of files) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
+        try {
+            const result = await db.uploadFile(currentCommunity, file, currentUserId);
             communityFiles[currentCommunity].push({
-                id: 'f' + Date.now() + Math.random().toString(36).slice(2, 6),
-                name: file.name,
-                type: file.type,
-                data: e.target.result,
-                date: nowDatetime(),
+                id: result.id,
+                name: result.file_name,
+                type: result.file_type,
+                storagePath: result.storage_path,
+                date: result.created_at,
             });
-            persist();
             renderCommunityFiles(currentCommunity);
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+            console.error('Upload error:', err);
+            alert('File upload failed: ' + err.message);
+        }
     }
 
     event.target.value = '';
@@ -1469,16 +1444,26 @@ function renderCommunityFiles(communityId) {
     }
 
     grid.innerHTML = files.map(f => {
+        const fileUrl = f.storagePath ? '' : (f.data || ''); // fallback for old base64 data
+        const viewOnclick = f.storagePath
+            ? `onclick="openStorageFile('${f.storagePath}')"`
+            : `onclick="window.open('${fileUrl}', '_blank')"`;
+        const downloadHref = f.storagePath ? '#' : fileUrl;
+        const downloadOnclick = f.storagePath
+            ? `onclick="event.preventDefault(); downloadStorageFile('${f.storagePath}', '${f.name}')"`
+            : '';
+
         if (f.type && f.type.startsWith('image/')) {
+            const imgSrc = f.storagePath ? db.getFileUrl(f.storagePath) : fileUrl;
             return `
                 <div class="file-card">
-                    <img src="${f.data}" alt="${f.name}" onclick="window.open('${f.data}', '_blank')">
+                    <img src="${imgSrc}" alt="${f.name}" ${viewOnclick}>
                     <div class="file-info">
                         <div>
                             <div class="file-name">${f.name}</div>
                             <div class="file-date">${formatDate(f.date)}</div>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="deleteFile('${communityId}', '${f.id}')">Delete</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteFile('${communityId}', '${f.id}', '${f.storagePath || ''}')">Delete</button>
                     </div>
                 </div>
             `;
@@ -1495,8 +1480,8 @@ function renderCommunityFiles(communityId) {
                             <div class="file-date">${formatDate(f.date)}</div>
                         </div>
                         <div>
-                            <a class="btn btn-sm" href="${f.data}" download="${f.name}">Download</a>
-                            <button class="btn btn-sm btn-danger" onclick="deleteFile('${communityId}', '${f.id}')">Delete</button>
+                            <a class="btn btn-sm" href="${downloadHref}" ${downloadOnclick} download="${f.name}">Download</a>
+                            <button class="btn btn-sm btn-danger" onclick="deleteFile('${communityId}', '${f.id}', '${f.storagePath || ''}')">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -1505,11 +1490,29 @@ function renderCommunityFiles(communityId) {
     }).join('');
 }
 
-function deleteFile(communityId, fileId) {
+async function openStorageFile(storagePath) {
+    const url = await db.getSignedUrl(storagePath);
+    window.open(url, '_blank');
+}
+
+async function downloadStorageFile(storagePath, fileName) {
+    const url = await db.getSignedUrl(storagePath);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+}
+
+async function deleteFile(communityId, fileId, storagePath) {
     if (!confirm('Delete this file?')) return;
-    communityFiles[communityId] = (communityFiles[communityId] || []).filter(f => f.id !== fileId);
-    persist();
-    renderCommunityFiles(communityId);
+    try {
+        await db.deleteFile(fileId, storagePath);
+        communityFiles[communityId] = (communityFiles[communityId] || []).filter(f => f.id !== fileId);
+        renderCommunityFiles(communityId);
+    } catch (err) {
+        console.error('Delete error:', err);
+        alert('Delete failed: ' + err.message);
+    }
 }
 
 // ===== CONTACTS =====
@@ -1603,7 +1606,7 @@ function saveContact(e) {
         trackRecent('contacts', data.id, 'edited');
     }
 
-    persist();
+    persistContact(data);
     closeModal('modal-add-contact');
     renderContacts();
 
@@ -1658,7 +1661,7 @@ function saveContactStatusNote() {
         taggedContacts: [p.contactId],
     };
 
-    notes.push(note);
+    notes.push(note); persistNote(note);
     persist();
     pendingContactStatusNote = null;
     closeModal('modal-contact-status-note');
@@ -1687,7 +1690,7 @@ function skipContactStatusNote() {
         taggedContacts: [p.contactId],
     };
 
-    notes.push(note);
+    notes.push(note); persistNote(note);
     persist();
     pendingContactStatusNote = null;
     closeModal('modal-contact-status-note');
@@ -1792,8 +1795,8 @@ function deleteCurrentContact() {
     if (!c) return;
     if (!confirm(`Delete contact "${c.name}"? This cannot be undone.`)) return;
 
+    db.deleteContact(currentContact).catch(err => console.error('Delete error:', err));
     contacts = contacts.filter(x => x.id !== currentContact);
-    persist();
     closeModal('modal-add-contact');
 
     // Close the tab and go to contacts list
@@ -1940,7 +1943,7 @@ function sendEmail() {
         taggedCommunities: involvedCommunities,
     };
 
-    comms.push(comm);
+    comms.push(comm); persistComm(comm);
     persist();
     closeModal('modal-email');
 }
@@ -2041,7 +2044,7 @@ function saveNote(e) {
         taggedContacts: contactTags,
     };
 
-    notes.push(note);
+    notes.push(note); persistNote(note);
     persist();
     closeModal('modal-add-note');
 
@@ -2084,7 +2087,7 @@ function saveComm(e) {
         taggedCommunities: [communityId],
     };
 
-    comms.push(comm);
+    comms.push(comm); persistComm(comm);
     persist();
     closeModal('modal-comm');
 
@@ -2363,7 +2366,11 @@ function saveCommunity(e) {
         communityParents[id] = parentId;
     }
 
-    persist();
+    // Persist to Supabase
+    persistCommunity({ id, name, parent_id: parentId || null });
+    if (newCommunitySelectedTags.length > 0) {
+        persistCommunityTags(id, newCommunitySelectedTags);
+    }
     buildSidebar();
     closeModal('modal-add-community');
     renderCommunitiesList();
@@ -2412,7 +2419,7 @@ function toggleCommunityTag(tag) {
             taggedCommunities: [editingTagsCommunity],
             taggedContacts: [],
         };
-        if (!setupMode) notes.push(note);
+        if (!setupMode) { notes.push(note); persistNote(note); }
     } else {
         // Add tag
         if (!communityTags[editingTagsCommunity]) communityTags[editingTagsCommunity] = [];
@@ -2428,11 +2435,11 @@ function toggleCommunityTag(tag) {
             taggedCommunities: [editingTagsCommunity],
             taggedContacts: [],
         };
-        if (!setupMode) notes.push(note);
+        if (!setupMode) { notes.push(note); persistNote(note); }
     }
 
     trackRecent('communities', editingTagsCommunity, 'edited');
-    persist();
+    persistCommunityTags(editingTagsCommunity, getCommunityTags(editingTagsCommunity));
     renderEditTagsList();
     buildSidebar(); // Update sidebar tag list
     // Refresh community view if it's showing
@@ -2463,8 +2470,8 @@ function addCustomTag() {
             taggedCommunities: [editingTagsCommunity],
             taggedContacts: [],
         };
-        if (!setupMode) notes.push(note);
-        persist();
+        if (!setupMode) { notes.push(note); persistNote(note); }
+        persistCommunityTags(editingTagsCommunity, getCommunityTags(editingTagsCommunity));
     }
 
     input.value = '';
@@ -2700,18 +2707,16 @@ function populateGroupedCommunitySelect(selectId) {
 }
 
 // ===== INIT =====
-buildSidebar();
+// Check if user has an active Supabase session
+(async function init() {
+    const session = await db.getSession();
+    if (session) {
+        await enterApp();
+    } else {
+        showLoginScreen();
+    }
 
-// Check if user is already logged in
-const savedUser = loadData('currentUser', null);
-if (savedUser) {
-    loginUser(savedUser);
-} else {
-    showLoginScreen();
-}
-
-// Set up all mention autocomplete textareas
-document.addEventListener('DOMContentLoaded', () => {
+    // Set up mention autocomplete textareas
     const pairs = [
         ['note-text-input', 'note-mention-dropdown'],
         ['move-additional-info', 'move-mention-dropdown'],
@@ -2723,19 +2728,4 @@ document.addEventListener('DOMContentLoaded', () => {
         const dd = document.getElementById(dropdownId);
         if (ta && dd) setupMentionAutocomplete(ta, dd);
     });
-});
-
-// Fallback: if DOMContentLoaded already fired
-if (document.readyState !== 'loading') {
-    const pairs = [
-        ['note-text-input', 'note-mention-dropdown'],
-        ['move-additional-info', 'move-mention-dropdown'],
-        ['status-change-info', 'status-mention-dropdown'],
-        ['comm-text-input', 'comm-mention-dropdown'],
-    ];
-    pairs.forEach(([textareaId, dropdownId]) => {
-        const ta = document.getElementById(textareaId);
-        const dd = document.getElementById(dropdownId);
-        if (ta && dd) setupMentionAutocomplete(ta, dd);
-    });
-}
+})();

@@ -2095,13 +2095,12 @@ tr:last-child td {
     border-color: var(--navy-300);
 }
 
-.login-add-user {
-    display: flex;
-    gap: 8px;
+.login-field {
+    margin-bottom: 10px;
 }
 
-.login-add-user input {
-    flex: 1;
+.login-field input {
+    width: 100%;
     padding: 10px 14px;
     border: 1px solid var(--slate-200);
     border-radius: var(--radius-sm);
@@ -2109,10 +2108,42 @@ tr:last-child td {
     font-family: var(--font-sans);
 }
 
-.login-add-user input:focus {
+.login-field input:focus {
     outline: none;
     border-color: var(--navy-400);
     box-shadow: 0 0 0 3px rgba(37, 99, 176, 0.1);
+}
+
+.login-toggle {
+    font-size: 12.5px;
+    color: var(--slate-400);
+    text-align: center;
+    margin-top: 12px;
+}
+
+.login-toggle a {
+    color: var(--navy-600);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-toggle a:hover {
+    text-decoration: underline;
+}
+
+.login-error {
+    display: none;
+    background: rgba(244, 63, 94, 0.08);
+    color: var(--aurora-rose);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.login-error.visible {
+    display: block;
 }
 
 /* ===== SIDEBAR USER ===== */
