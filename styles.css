@@ -2450,6 +2450,30 @@ tr:last-child td {
     color: var(--slate-400);
 }
 
+/* ===== SORTABLE TABLE HEADERS ===== */
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+
+.sortable-th:hover {
+    color: var(--navy-600);
+}
+
+.sortable-th.sort-active {
+    color: var(--navy-600);
+}
+
+.sortable-th.sort-active::after {
+    content: ' \25B2';
+    font-size: 9px;
+}
+
+.sortable-th.sort-active.sort-desc::after {
+    content: ' \25BC';
+}
+
 /* ===== BULK ACTIONS ===== */
 .sensor-checkbox {
     width: 16px;

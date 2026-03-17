@@ -339,6 +339,7 @@ async function enterApp() {
         `<span class="user-name">${currentUser}</span><span class="sidebar-user-actions"><span class="sidebar-settings-btn" onclick="event.stopPropagation(); showView('settings')" title="Settings">&#9881;</span><span class="user-logout" onclick="logoutUser()">Sign out</span></span>`;
     renderSetupModeIndicator();
     buildSidebar();
+    buildSensorSidebar();
     renderPinnedSidebar();
     restoreLastView();
     startInactivityTimer();
@@ -573,12 +574,25 @@ document.querySelector('.community-menu-item').addEventListener('click', (e) => 
     showView('communities');
 });
 
+document.querySelector('.sensor-menu-item').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (e.target.classList.contains('sensor-toggle-arrow')) {
+        const list = document.getElementById('sensor-tag-list');
+        const arrow = e.target;
+        list.classList.toggle('open');
+        arrow.classList.toggle('open');
+        return;
+    }
+    sensorTagFilter = '';
+    showView('all-sensors');
+});
+
 document.querySelectorAll('.menu-item[data-view]').forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
         const view = item.dataset.view;
         if (view === 'dashboard') showView('dashboard');
-        if (view === 'all-sensors') showView('all-sensors');
+        if (view === 'all-sensors') return;
         if (view === 'contacts') showView('contacts');
         if (view === 'communities') return; // handled by community-menu-item listener
     });
@@ -834,8 +848,26 @@ function renderSensors() {
     let filtered = sensors.filter(s => {
         if (search && !s.id.toLowerCase().includes(search) && !getCommunityName(s.community).toLowerCase().includes(search) && !(s.soaTagId || '').toLowerCase().includes(search)) return false;
         if (statusFilter && !getStatusArray(s).includes(statusFilter)) return false;
+        if (sensorTagFilter) {
+            if (sensorTagFilter === 'Sensor Issue') {
+                if (!getStatusArray(s).some(st => SENSOR_ISSUE_STATUSES.includes(st))) return false;
+            } else {
+                if (s.type !== sensorTagFilter) return false;
+            }
+        }
         return true;
-    }).sort((a, b) => a.id.localeCompare(b.id));
+    });
+
+    // Sort
+    const sf = sensorSortField;
+    filtered.sort((a, b) => {
+        let va, vb;
+        if (sf === 'community') { va = getCommunityName(a.community); vb = getCommunityName(b.community); }
+        else if (sf === 'status') { va = getStatusArray(a).join(', '); vb = getStatusArray(b).join(', '); }
+        else { va = a[sf] || ''; vb = b[sf] || ''; }
+        const cmp = String(va).localeCompare(String(vb));
+        return sensorSortAsc ? cmp : -cmp;
+    });
 
     if (setupMode) {
         const communityOptions = '<option value="">— None —</option>' +
@@ -3083,6 +3115,65 @@ async function disableMfa(factorId) {
     const { error } = await supa.auth.mfa.unenroll({ factorId });
     if (error) { alert(error.message); return; }
     await renderMfaSettings();
+}
+
+// ===== SENSOR TAGS & SIDEBAR =====
+const SENSOR_ISSUE_STATUSES = ['PM Sensor Issue', 'Gaseous Sensor Issue', 'SD Card Issue', 'Needs Repair'];
+
+function getSensorTags() {
+    const tags = new Set();
+    sensors.forEach(s => {
+        const statuses = getStatusArray(s);
+        if (statuses.some(st => SENSOR_ISSUE_STATUSES.includes(st))) {
+            tags.add('Sensor Issue');
+        }
+    });
+    SENSOR_TYPES.forEach(t => tags.add(t));
+    return [...tags].sort();
+}
+
+let sensorTagFilter = '';
+
+function buildSensorSidebar() {
+    const list = document.getElementById('sensor-tag-list');
+    const tags = getSensorTags();
+    list.innerHTML = tags.map(tag =>
+        `<li><a href="#" data-sensor-tag="${tag}" onclick="event.preventDefault(); filterSensorsByTag('${tag.replace(/'/g, "\\'")}')">${tag}</a></li>`
+    ).join('');
+}
+
+function filterSensorsByTag(tag) {
+    sensorTagFilter = sensorTagFilter === tag ? '' : tag;
+    showView('all-sensors');
+
+    document.querySelectorAll('#sensor-tag-list a').forEach(a => a.classList.remove('active'));
+    if (sensorTagFilter) {
+        const link = document.querySelector(`#sensor-tag-list a[data-sensor-tag="${sensorTagFilter}"]`);
+        if (link) link.classList.add('active');
+    }
+}
+
+// ===== SENSOR TABLE SORTING =====
+let sensorSortField = 'id';
+let sensorSortAsc = true;
+
+function sortSensorsBy(field) {
+    if (sensorSortField === field) {
+        sensorSortAsc = !sensorSortAsc;
+    } else {
+        sensorSortField = field;
+        sensorSortAsc = true;
+    }
+    renderSensors();
+
+    document.querySelectorAll('.sortable-th').forEach(th => {
+        th.classList.remove('sort-active', 'sort-desc');
+    });
+    const activeTh = document.querySelector(`.sortable-th[onclick*="${field}"]`);
+    if (activeTh) {
+        activeTh.classList.add('sort-active');
+        if (!sensorSortAsc) activeTh.classList.add('sort-desc');
+    }
 }
 
 // ===== GLOBAL SEARCH =====
