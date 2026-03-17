@@ -96,12 +96,6 @@ async function loadAllData() {
 }
 
 // persist() pushes all changed data to Supabase
-// Called after local array modifications — fires async writes in background
-function persist() {
-    // Sensors: upsert all (Supabase handles duplicates via primary key)
-    sensors.forEach(s => db.upsertSensor(s).catch(err => console.error('Sensor save error:', err)));
-}
-
 // Targeted persist functions for specific operations
 function persistSensor(sensorData) {
     db.upsertSensor(sensorData).catch(err => console.error('Sensor save error:', err));
@@ -143,16 +137,6 @@ function getChildCommunities(communityId) {
 
 function isChildCommunity(communityId) {
     return !!communityParents[communityId];
-}
-
-function persist() {
-    saveData('sensors', sensors);
-    saveData('contacts', contacts);
-    saveData('notes', notes);
-    saveData('comms', comms);
-    saveData('communityFiles', communityFiles);
-    saveData('communityTags', communityTags);
-    saveData('communityParents', communityParents);
 }
 
 // ===== RECENT ACTIVITY TRACKING =====
@@ -883,7 +867,8 @@ function renderSensors() {
                 <td><select class="inline-edit-select" data-sensor="${s.id}" data-field="community" onchange="inlineSaveSensor(this)">
                     ${('<option value="">— None —</option>' + COMMUNITIES.map(c => `<option value="${c.id}" ${s.community === c.id ? 'selected' : ''}>${c.name}</option>`).join(''))}
                 </select></td>
-                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Location" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Address or GPS" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                <td>${s.dateInstalled || '—'}</td>
                 <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)"></td>
                 <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Mar 5-13" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
                 <td>
@@ -1143,7 +1128,6 @@ function saveEditAnnotation() {
 
     const _annNote1 = buildAnnotationNote(annotation, additionalInfo, date);
     notes.push(_annNote1); persistNote(_annNote1);
-    persist();
     closeModal('modal-edit-annotation');
 
     setTimeout(() => showNextAnnotation(), 150);
@@ -1155,7 +1139,6 @@ function skipEditAnnotation() {
 
     const _annNote2 = buildAnnotationNote(annotation, '', date);
     notes.push(_annNote2); persistNote(_annNote2);
-    persist();
     closeModal('modal-edit-annotation');
 
     setTimeout(() => showNextAnnotation(), 150);
@@ -1215,7 +1198,6 @@ function saveStatusChange(e) {
     };
 
     if (!setupMode) { notes.push(note); persistNote(note); }
-    persist();
     closeModal('modal-status-change');
     renderSensors();
     if (currentSensor === sensorId) showSensorView(sensorId);
@@ -1274,7 +1256,6 @@ function moveSensor(e) {
     };
 
     if (!setupMode) { notes.push(note); persistNote(note); }
-    persist();
     closeModal('modal-move-sensor');
     renderSensors();
     if (currentCommunity) showCommunityView(currentCommunity);
@@ -1318,7 +1299,10 @@ function showSensorView(sensorId) {
                 </select>
             </div>
             <div class="info-item"><label>Location</label>
-                <input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Location" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()">
+                <input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Address or GPS coordinates" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="info-item"><label>Install Date</label>
+                <p>${s.dateInstalled || '—'}</p>
             </div>
             <div class="info-item"><label>Purchase Date</label>
                 <input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)">
@@ -1491,7 +1475,8 @@ function showCommunityView(communityId) {
                     <td><select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple onchange="inlineSaveSensor(this)">
                         ${ALL_STATUSES.map(st => `<option value="${st}" ${currentStatuses.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
                     </select></td>
-                    <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Location" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                    <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Address or GPS" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                    <td>${s.dateInstalled || '—'}</td>
                     <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)"></td>
                     <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Mar 5-13" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
                     <td><button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button></td>
@@ -1534,7 +1519,7 @@ function showCommunityView(communityId) {
                     <span class="site-group-count">${childSensors.length} sensor${childSensors.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div class="table-container site-group-table"><table>${sensorTableHead}<tbody>
-                    ${renderSensorRows(childSensors) || '<tr><td colspan="7" class="empty-state">No sensors at this site.</td></tr>'}
+                    ${renderSensorRows(childSensors) || '<tr><td colspan="8" class="empty-state">No sensors at this site.</td></tr>'}
                 </tbody></table></div>
             </div>`;
         });
@@ -1542,7 +1527,7 @@ function showCommunityView(communityId) {
         sensorsSection.innerHTML = html;
     } else {
         sensorsSection.innerHTML = `<div class="table-container"><table>${sensorTableHead}<tbody>
-            ${renderSensorRows(commSensors) || '<tr><td colspan="7" class="empty-state">No sensors in this community.</td></tr>'}
+            ${renderSensorRows(commSensors) || '<tr><td colspan="8" class="empty-state">No sensors in this community.</td></tr>'}
         </tbody></table></div>`;
     }
 
@@ -1884,7 +1869,6 @@ function saveContactStatusNote() {
     };
 
     notes.push(note); persistNote(note);
-    persist();
     pendingContactStatusNote = null;
     closeModal('modal-contact-status-note');
 
@@ -1913,7 +1897,6 @@ function skipContactStatusNote() {
     };
 
     notes.push(note); persistNote(note);
-    persist();
     pendingContactStatusNote = null;
     closeModal('modal-contact-status-note');
 
@@ -2167,7 +2150,6 @@ function sendEmail() {
     };
 
     comms.push(comm); persistComm(comm);
-    persist();
     closeModal('modal-email');
 }
 
@@ -2268,7 +2250,6 @@ function saveNote(e) {
     };
 
     notes.push(note); persistNote(note);
-    persist();
     closeModal('modal-add-note');
 
     if (currentCommunity) showCommunityView(currentCommunity);
@@ -2311,7 +2292,6 @@ function saveComm(e) {
     };
 
     comms.push(comm); persistComm(comm);
-    persist();
     closeModal('modal-comm');
 
     if (currentCommunity) showCommunityView(currentCommunity);
