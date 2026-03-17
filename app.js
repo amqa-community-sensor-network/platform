@@ -865,7 +865,7 @@ function renderSensors() {
         if (search && !s.id.toLowerCase().includes(search) && !getCommunityName(s.community).toLowerCase().includes(search) && !(s.soaTagId || '').toLowerCase().includes(search)) return false;
         if (statusFilter && !getStatusArray(s).includes(statusFilter)) return false;
         if (sensorTagFilter) {
-            if (sensorTagFilter === 'Sensor Issue') {
+            if (sensorTagFilter === 'Issue Sensors') {
                 if (!getStatusArray(s).some(st => SENSOR_ISSUE_STATUSES.includes(st))) return false;
             } else if (sensorTagFilter === 'Audit & Permanent Pods') {
                 if (s.type !== 'Audit Pod' && s.type !== 'Permanent Pod') return false;
@@ -3253,7 +3253,7 @@ const SENSOR_ISSUE_STATUSES = ['PM Sensor Issue', 'Gaseous Sensor Issue', 'SD Ca
 function getSensorTags() {
     const tags = [];
     const hasIssue = sensors.some(s => getStatusArray(s).some(st => SENSOR_ISSUE_STATUSES.includes(st)));
-    if (hasIssue) tags.push('Sensor Issue');
+    if (hasIssue) tags.push('Issue Sensors');
     tags.push('Community Pod');
     tags.push('Audit & Permanent Pods');
     tags.push('Collocation/Health Check');
