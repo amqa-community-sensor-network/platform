@@ -60,6 +60,7 @@ async function loadAllData() {
         location: s.location || '',
         datePurchased: s.date_purchased || '',
         collocationDates: s.collocation_dates || '',
+        dateInstalled: s.date_installed || '',
     }));
 
     // Contacts — map DB columns to app format
@@ -337,6 +338,7 @@ async function handleSignUp() {
 }
 
 async function enterApp() {
+    sessionStorage.setItem('mfa_verified_at', Date.now().toString());
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('login-loading').style.display = '';
 
@@ -371,6 +373,7 @@ function startInactivityTimer() {
 function resetInactivityTimer() {
     if (inactivityTimeout) clearTimeout(inactivityTimeout);
     inactivityTimeout = setTimeout(async () => {
+        sessionStorage.removeItem('mfa_verified_at');
         alert('You have been signed out due to inactivity.');
         await logoutUser();
     }, INACTIVITY_LIMIT);
@@ -874,7 +877,7 @@ function renderSensors() {
                     <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
                 </td>
             </tr>`;
-        }).join('') || '<tr><td colspan="8" class="empty-state">No sensors found.</td></tr>';
+        }).join('') || '<tr><td colspan="9" class="empty-state">No sensors found.</td></tr>';
 
         // Attach change listener for multi-select status fields
         document.querySelectorAll('.inline-edit-status').forEach(sel => {
@@ -888,6 +891,7 @@ function renderSensors() {
                 <td>${renderStatusBadges(s, true)}</td>
                 <td><span class="clickable" onclick="showCommunity('${s.community}')">${getCommunityName(s.community)}</span></td>
                 <td>${s.location || '—'}</td>
+                <td>${s.dateInstalled || '—'}</td>
                 <td>${s.datePurchased || '—'}</td>
                 <td>${s.collocationDates || '—'}</td>
                 <td>
@@ -895,7 +899,7 @@ function renderSensors() {
                     <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="8" class="empty-state">No sensors found.</td></tr>';
+        `).join('') || '<tr><td colspan="9" class="empty-state">No sensors found.</td></tr>';
     }
 }
 
@@ -1236,6 +1240,7 @@ function moveSensor(e) {
     const toName = getCommunityName(toCommunityId);
 
     s.community = toCommunityId;
+    s.dateInstalled = moveDate.split('T')[0] || nowDatetime().split('T')[0];
     persistSensor(s);
 
     let noteText = `${sensorId} removed from ${fromName} and brought to ${toName}.`;
@@ -1316,6 +1321,7 @@ function showSensorView(sensorId) {
             <div class="info-item"><label>Status</label><p>${renderStatusBadges(s, true)}</p></div>
             <div class="info-item"><label>Community</label><p><span class="editable-field" onclick="openInlineCommunityChange('${s.id}')">${getCommunityName(s.community)}</span> <a class="move-sensor-link" onclick="openMoveSensorModal('${s.id}')">Move &rarr;</a></p></div>
             <div class="info-item"><label>Location</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'location')">${s.location || '—'}</p></div>
+            <div class="info-item"><label>Install Date</label><p>${s.dateInstalled || '—'}</p></div>
             <div class="info-item"><label>Purchase Date</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'datePurchased')">${s.datePurchased || '—'}</p></div>
             <div class="info-item"><label>Collocation Dates</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'collocationDates')">${s.collocationDates || '—'}</p></div>
         `;
@@ -1452,7 +1458,7 @@ function showCommunityView(communityId) {
 
     const sensorTableHead = `<thead><tr>
         <th>Sensor ID</th><th>SOA Tag ID</th><th>Status</th>
-        <th>Location</th><th>Purchase Date</th><th>Collocation Dates</th><th>Actions</th>
+        <th>Location</th><th>Install Date</th><th>Purchase Date</th><th>Collocation Dates</th><th>Actions</th>
     </tr></thead>`;
 
     function renderSensorRows(list) {
@@ -1482,6 +1488,7 @@ function showCommunityView(communityId) {
             <td>${s.soaTagId || '—'}</td>
             <td>${renderStatusBadges(s, true)}</td>
             <td>${s.location || '—'}</td>
+            <td>${s.dateInstalled || '—'}</td>
             <td>${s.datePurchased || '—'}</td>
             <td>${s.collocationDates || '—'}</td>
             <td>
@@ -1525,16 +1532,27 @@ function showCommunityView(communityId) {
     }
 
     // Contacts
-    const commContacts = contacts.filter(c => c.community === communityId).sort((a, b) => a.name.localeCompare(b.name));
-    document.getElementById('community-contacts-list').innerHTML = commContacts.map(c => `
-        <div class="contact-card ${c.active === false ? 'inactive' : ''}" onclick="showContactDetail('${c.id}')">
-            <h3>${c.name}${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : ''}</h3>
-            <div class="contact-role">${c.role || ''}</div>
-            <div class="contact-detail">${c.org || ''}</div>
-            <div class="contact-detail">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : ''}</div>
-            <div class="contact-detail">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : ''}</div>
-        </div>
-    `).join('') || '<div class="empty-state">No contacts for this community.</div>';
+    const commContacts = contacts.filter(c => c.community === communityId).sort((a, b) => {
+        const aI = a.active === false ? 1 : 0, bI = b.active === false ? 1 : 0;
+        if (aI !== bI) return aI - bI;
+        return a.name.localeCompare(b.name);
+    });
+    document.getElementById('community-contacts-list').innerHTML = commContacts.length ? `
+        <div class="table-container"><table class="contacts-table"><thead><tr>
+            <th>Name</th><th>Role</th><th>Organization</th><th>Email</th><th>Phone</th><th>Status</th>
+        </tr></thead><tbody>
+        ${commContacts.map(c => `
+            <tr class="${c.active === false ? 'contact-row-inactive' : ''}" onclick="showContactDetail('${c.id}')" style="cursor:pointer">
+                <td><span class="clickable">${c.name}</span></td>
+                <td>${c.role || '—'}</td>
+                <td>${c.org || '—'}</td>
+                <td>${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '—'}</td>
+                <td>${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : '—'}</td>
+                <td>${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--aurora-green);font-size:11px;font-weight:600">Active</span>'}</td>
+            </tr>
+        `).join('')}
+        </tbody></table></div>
+    ` : '<div class="empty-state">No contacts for this community.</div>';
 
     // History
     const commNotes = notes.filter(n => n.taggedCommunities && n.taggedCommunities.includes(communityId));
@@ -1683,25 +1701,35 @@ function renderContacts() {
     // Sort community names alphabetically
     const sortedCommunities = Object.keys(groups).sort();
 
-    // Sort contacts within each community alphabetically
+    // Sort: active first alphabetically, then inactive alphabetically
     sortedCommunities.forEach(comm => {
-        groups[comm].sort((a, b) => a.name.localeCompare(b.name));
+        groups[comm].sort((a, b) => {
+            const aInactive = a.active === false ? 1 : 0;
+            const bInactive = b.active === false ? 1 : 0;
+            if (aInactive !== bInactive) return aInactive - bInactive;
+            return a.name.localeCompare(b.name);
+        });
     });
 
     const container = document.getElementById('contacts-grid');
     container.innerHTML = sortedCommunities.map(commName => `
         <div class="contacts-group">
             <div class="contacts-group-header">${commName}</div>
-            <div class="contacts-grid">
+            <div class="table-container">
+                <table class="contacts-table"><thead><tr>
+                    <th>Name</th><th>Role</th><th>Organization</th><th>Email</th><th>Phone</th><th>Status</th>
+                </tr></thead><tbody>
                 ${groups[commName].map(c => `
-                    <div class="contact-card ${c.active === false ? 'inactive' : ''}" onclick="showContactDetail('${c.id}')">
-                        <h3>${c.name}${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : ''}</h3>
-                        <div class="contact-role">${c.role || ''}</div>
-                        <div class="contact-detail">${c.org || ''}</div>
-                        <div class="contact-detail">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : ''}</div>
-                        <div class="contact-detail">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : ''}</div>
-                    </div>
+                    <tr class="${c.active === false ? 'contact-row-inactive' : ''}" onclick="showContactDetail('${c.id}')" style="cursor:pointer">
+                        <td><span class="clickable">${c.name}</span></td>
+                        <td>${c.role || '—'}</td>
+                        <td>${c.org || '—'}</td>
+                        <td>${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '—'}</td>
+                        <td>${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : '—'}</td>
+                        <td>${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--aurora-green);font-size:11px;font-weight:600">Active</span>'}</td>
+                    </tr>
                 `).join('')}
+                </tbody></table>
             </div>
         </div>
     `).join('') || '<div class="empty-state">No contacts found.</div>';
@@ -2296,10 +2324,20 @@ function renderTimeline(containerId, items) {
             ? `<div class="timeline-attribution">Changed by ${item.createdBy}, ${formatDate(item.date)}</div>`
             : '';
 
+        const isNote = !item.commType;
+        const actions = `<div class="timeline-actions" onclick="event.stopPropagation()">
+            <span class="timeline-action-btn" onclick="deleteTimelineItem('${item.id}', ${isNote})" title="Delete">&#128465;</span>
+        </div>`;
+
         return `
             <div class="timeline-item ${typeClass}" ${expandable}>
-                <div class="timeline-date">${formatDate(item.date)}</div>
-                <div class="timeline-type">${item.commType || item.type}</div>
+                <div class="timeline-header">
+                    <div>
+                        <div class="timeline-date">${formatDate(item.date)}</div>
+                        <div class="timeline-type">${item.commType || item.type}</div>
+                    </div>
+                    ${actions}
+                </div>
                 <div class="timeline-text">${highlightMentions(item.text)}${hasFullBody ? ' <small style="color:#2563eb">(click to expand)</small>' : ''}</div>
                 ${additionalInfoHtml}
                 ${hasFullBody ? `<div class="timeline-text-full">${item.fullBody}</div>` : ''}
@@ -2308,6 +2346,26 @@ function renderTimeline(containerId, items) {
             </div>
         `;
     }).join('');
+}
+
+async function deleteTimelineItem(id, isNote) {
+    if (!confirm('Are you sure? Only delete events that were created by accident.')) return;
+
+    if (isNote) {
+        notes = notes.filter(n => n.id !== id);
+        supa.from('note_tags').delete().eq('note_id', id).then(() => {
+            supa.from('notes').delete().eq('id', id);
+        });
+    } else {
+        comms = comms.filter(c => c.id !== id);
+        supa.from('comm_tags').delete().eq('comm_id', id).then(() => {
+            supa.from('comms').delete().eq('id', id);
+        });
+    }
+
+    if (currentSensor) showSensorView(currentSensor);
+    if (currentCommunity) showCommunityView(currentCommunity);
+    if (currentContact) showContactView(currentContact);
 }
 
 function getTimelineTypeClass(type) {
@@ -3060,8 +3118,15 @@ async function disableMfa(factorId) {
 
     const session = await db.getSession();
     if (session) {
-        // Always require MFA verification on page load
-        await checkMfaAndProceed();
+        // Check if MFA was verified recently (within 1 hour) and browser hasn't been closed
+        const mfaVerifiedAt = sessionStorage.getItem('mfa_verified_at');
+        const mfaStillValid = mfaVerifiedAt && (Date.now() - parseInt(mfaVerifiedAt)) < INACTIVITY_LIMIT;
+
+        if (mfaStillValid) {
+            await enterApp();
+        } else {
+            await checkMfaAndProceed();
+        }
     } else {
         showLoginScreen();
     }

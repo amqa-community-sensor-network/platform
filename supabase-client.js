@@ -109,6 +109,7 @@ const db = {
             location: sensor.location || '',
             date_purchased: sensor.datePurchased || '',
             collocation_dates: sensor.collocationDates || '',
+            date_installed: sensor.dateInstalled || '',
             updated_at: new Date().toISOString(),
         });
         if (error) throw error;
