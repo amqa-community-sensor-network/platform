@@ -190,7 +190,16 @@ function showSignUpForm() {
 
 async function backToSignIn() {
     await supa.auth.signOut();
-    showSignInForm();
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-form-section').style.display = '';
+    document.getElementById('signup-form-section').style.display = 'none';
+    document.getElementById('mfa-challenge-section').style.display = 'none';
+    document.getElementById('mfa-setup-section').style.display = 'none';
+    document.getElementById('login-loading').style.display = 'none';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+    hideLoginError();
 }
 
 function showSignInForm() {
