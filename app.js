@@ -830,7 +830,10 @@ function getStatusDisplay(s) {
 
 function renderStatusBadges(s, clickable) {
     const statuses = getStatusArray(s);
-    if (statuses.length === 0) return '—';
+    if (statuses.length === 0) {
+        if (clickable) return `<span class="editable-field" onclick="openStatusChangeModal('${s.id}')">No status set</span>`;
+        return '—';
+    }
     return statuses.map(st => {
         const cls = clickable ? 'badge-clickable' : '';
         const onclick = clickable ? `onclick="openStatusChangeModal('${s.id}')"` : '';
