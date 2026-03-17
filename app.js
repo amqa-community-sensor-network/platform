@@ -227,6 +227,11 @@ async function handleSignIn() {
     if (!email || !password) { showLoginError('Please enter email and password.'); return; }
 
     try {
+        const { data: allowed } = await supa.rpc('is_email_allowed', { check_email: email });
+        if (!allowed) {
+            showLoginError('Access denied. Please contact the site admin to request access.');
+            return;
+        }
         await db.signIn(email, password);
         await checkMfaAndProceed();
     } catch (err) {

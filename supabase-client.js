@@ -11,7 +11,7 @@ const db = {
         // Check allowed list first
         const { data: allowed, error: checkErr } = await supa.rpc('is_email_allowed', { check_email: email });
         if (checkErr) throw checkErr;
-        if (!allowed) throw new Error('Email not authorized. Contact your administrator.');
+        if (!allowed) throw new Error('Access denied. Please contact the site admin to request access.');
 
         const { data, error } = await supa.auth.signUp({
             email,
