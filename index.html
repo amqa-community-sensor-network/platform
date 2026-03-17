@@ -36,13 +36,23 @@
                 <button type="submit" class="btn btn-primary" style="width:100%">Create Account</button>
                 <p class="login-toggle">Already have an account? <a href="#" onclick="showSignInForm(); return false;">Sign In</a></p>
             </form>
+            <div id="mfa-setup-section" style="display:none">
+                <h3 style="font-size:15px;color:var(--slate-800);margin-bottom:8px">Set Up Authenticator</h3>
+                <p style="font-size:13px;color:var(--slate-500);margin-bottom:16px">Scan this QR code with an authenticator app (Google Authenticator, Authy, or similar), then enter the 6-digit code to verify.</p>
+                <div id="mfa-setup-qr" style="text-align:center;margin-bottom:16px"></div>
+                <form onsubmit="handleMfaSetupVerify(); return false;">
+                    <div class="login-field">
+                        <input type="text" id="mfa-setup-code" placeholder="000000" maxlength="6" autocomplete="one-time-code" style="text-align:center;font-family:var(--font-mono);font-size:18px;letter-spacing:4px">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">Verify & Continue</button>
+                </form>
+            </div>
             <form id="mfa-challenge-section" style="display:none" onsubmit="handleMfaVerify(); return false;">
                 <p style="font-size:13px;color:var(--slate-500);margin-bottom:12px">Enter the 6-digit code from your authenticator app:</p>
                 <div class="login-field">
                     <input type="text" id="mfa-challenge-code" placeholder="000000" maxlength="6" autocomplete="one-time-code" style="text-align:center;font-family:var(--font-mono);font-size:18px;letter-spacing:4px">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width:100%">Verify</button>
-                <p class="login-toggle"><a href="#" onclick="showSignInForm(); return false;">Back to Sign In</a></p>
             </form>
             <div id="login-loading" style="display:none;text-align:center;padding:20px;color:var(--slate-400)">Loading...</div>
         </div>

@@ -212,30 +212,67 @@ async function handleSignIn() {
     if (!email || !password) { showLoginError('Please enter email and password.'); return; }
 
     try {
-        const result = await db.signIn(email, password);
-
-        // Check if MFA is required
-        if (result.data?.session === null && result.data?.user === null) {
-            // MFA challenge needed
-            showMfaChallenge();
-            return;
-        }
-
-        await enterApp();
+        await db.signIn(email, password);
+        await checkMfaAndProceed();
     } catch (err) {
-        // Supabase returns a specific error for MFA
-        if (err.message && err.message.includes('mfa')) {
-            showMfaChallenge();
-            return;
-        }
         showLoginError(err.message || 'Sign in failed.');
+    }
+}
+
+async function checkMfaAndProceed() {
+    const { data: factors } = await supa.auth.mfa.listFactors();
+    const totp = factors?.totp?.find(f => f.status === 'verified');
+
+    if (totp) {
+        showMfaChallenge();
+    } else {
+        showMfaSetup();
     }
 }
 
 function showMfaChallenge() {
     document.getElementById('login-form-section').style.display = 'none';
     document.getElementById('signup-form-section').style.display = 'none';
+    document.getElementById('mfa-setup-section').style.display = 'none';
     document.getElementById('mfa-challenge-section').style.display = '';
+    document.getElementById('mfa-challenge-code').value = '';
+    document.getElementById('mfa-challenge-code').focus();
+}
+
+function showMfaSetup() {
+    document.getElementById('login-form-section').style.display = 'none';
+    document.getElementById('signup-form-section').style.display = 'none';
+    document.getElementById('mfa-challenge-section').style.display = 'none';
+    document.getElementById('mfa-setup-section').style.display = '';
+    startMfaEnrollment();
+}
+
+async function startMfaEnrollment() {
+    const { data, error } = await supa.auth.mfa.enroll({ factorType: 'totp' });
+    if (error) { showLoginError(error.message); return; }
+
+    document.getElementById('mfa-setup-qr').innerHTML = `
+        <img src="${data.totp.qr_code}" alt="QR Code" style="width:200px;height:200px">
+        <p style="font-size:11px;color:var(--slate-400);margin-top:8px;word-break:break-all">Manual code: <code style="font-family:var(--font-mono);color:var(--slate-600)">${data.totp.secret}</code></p>
+    `;
+    document.getElementById('mfa-setup-section').dataset.factorId = data.id;
+}
+
+async function handleMfaSetupVerify() {
+    hideLoginError();
+    const code = document.getElementById('mfa-setup-code').value.trim();
+    if (!code || code.length !== 6) { showLoginError('Enter the 6-digit code from your authenticator app.'); return; }
+
+    const factorId = document.getElementById('mfa-setup-section').dataset.factorId;
+    try {
+        const { data: challenge } = await supa.auth.mfa.challenge({ factorId });
+        const { error } = await supa.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
+        if (error) { showLoginError('Invalid code. Try again.'); return; }
+
+        await enterApp();
+    } catch (err) {
+        showLoginError(err.message || 'Verification failed.');
+    }
 }
 
 async function handleMfaVerify() {
@@ -245,7 +282,7 @@ async function handleMfaVerify() {
 
     try {
         const { data: factors } = await supa.auth.mfa.listFactors();
-        const totp = factors?.totp?.[0];
+        const totp = factors?.totp?.find(f => f.status === 'verified');
         if (!totp) { showLoginError('No MFA factor found.'); return; }
 
         const { data: challenge } = await supa.auth.mfa.challenge({ factorId: totp.id });
@@ -294,6 +331,26 @@ async function enterApp() {
     renderSetupModeIndicator();
     buildSidebar();
     restoreLastView();
+    startInactivityTimer();
+}
+
+// ===== INACTIVITY TIMER (1 hour) =====
+let inactivityTimeout = null;
+const INACTIVITY_LIMIT = 60 * 60 * 1000; // 1 hour in ms
+
+function startInactivityTimer() {
+    resetInactivityTimer();
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, resetInactivityTimer, { passive: true });
+    });
+}
+
+function resetInactivityTimer() {
+    if (inactivityTimeout) clearTimeout(inactivityTimeout);
+    inactivityTimeout = setTimeout(async () => {
+        alert('You have been signed out due to inactivity.');
+        await logoutUser();
+    }, INACTIVITY_LIMIT);
 }
 
 async function logoutUser() {
@@ -2808,20 +2865,13 @@ async function removeAllowedEmail(id) {
 // ===== MFA =====
 async function renderMfaSettings() {
     const { data: factors } = await supa.auth.mfa.listFactors();
-    const totp = factors?.totp?.[0];
+    const totp = factors?.totp?.find(f => f.status === 'verified');
     const container = document.getElementById('settings-mfa');
 
-    if (totp && totp.status === 'verified') {
-        container.innerHTML = `
-            <p style="color:var(--aurora-green);font-weight:600;margin-bottom:12px">MFA is enabled</p>
-            <button class="btn btn-danger" onclick="disableMfa('${totp.id}')">Disable MFA</button>
-        `;
+    if (totp) {
+        container.innerHTML = `<p style="color:var(--aurora-green);font-weight:600">MFA is enabled. A 6-digit code is required on every sign-in.</p>`;
     } else {
-        container.innerHTML = `
-            <p style="margin-bottom:12px">Add an extra layer of security with an authenticator app (Google Authenticator, Authy, etc.)</p>
-            <button class="btn btn-primary" onclick="startMfaSetup()">Enable MFA</button>
-            <div id="mfa-setup-area"></div>
-        `;
+        container.innerHTML = `<p style="color:var(--aurora-amber);font-weight:600">MFA setup is pending. You will be prompted to complete it on your next sign-in.</p>`;
     }
 }
 
@@ -2865,23 +2915,18 @@ async function disableMfa(factorId) {
 }
 
 // ===== INIT =====
-// Check if user has an active Supabase session
 (async function init() {
     // Handle auth redirects (email confirmation links, password resets)
     const hash = window.location.hash;
     if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery'))) {
-        // Supabase puts tokens in the URL hash after email confirmation
-        // The client picks them up automatically, just need to wait
-        const { data, error } = await supa.auth.getSession();
+        const { data } = await supa.auth.getSession();
         if (data?.session) {
-            // Clean up the URL
             window.history.replaceState(null, '', window.location.pathname);
-            await enterApp();
+            await checkMfaAndProceed();
             return;
         }
     }
 
-    // Also handle token in query params (some Supabase versions use this)
     const params = new URLSearchParams(window.location.search);
     if (params.has('token_hash') || params.has('type')) {
         const { error } = await supa.auth.verifyOtp({
@@ -2892,7 +2937,7 @@ async function disableMfa(factorId) {
             window.history.replaceState(null, '', window.location.pathname);
             const session = await db.getSession();
             if (session) {
-                await enterApp();
+                await checkMfaAndProceed();
                 return;
             }
         }
@@ -2900,7 +2945,8 @@ async function disableMfa(factorId) {
 
     const session = await db.getSession();
     if (session) {
-        await enterApp();
+        // Always require MFA verification on page load
+        await checkMfaAndProceed();
     } else {
         showLoginScreen();
     }
