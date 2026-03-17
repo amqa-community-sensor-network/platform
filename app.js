@@ -1350,14 +1350,14 @@ function showSensorView(sensorId) {
         `;
     } else {
         document.getElementById('sensor-info-card').innerHTML = `
-            <div class="info-item"><label>Type</label><p class="editable-field" onclick="inlineEditSensorType('${s.id}')">${s.type}</p></div>
-            <div class="info-item"><label>SOA Tag ID</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'soaTagId')">${s.soaTagId || '—'}</p></div>
+            <div class="info-item"><label>Type</label><p class="hover-edit-field">${s.type} <span class="hover-edit-icon" onclick="inlineEditSensorType('${s.id}')">&#9998;</span></p></div>
+            <div class="info-item"><label>SOA Tag ID</label><p class="hover-edit-field">${s.soaTagId || '—'} <span class="hover-edit-icon" onclick="inlineEditSensor('${s.id}', 'soaTagId')">&#9998;</span></p></div>
             <div class="info-item"><label>Status</label><p>${renderStatusBadges(s, true)}</p></div>
-            <div class="info-item"><label>Community</label><p><span class="editable-field" onclick="openInlineCommunityChange('${s.id}')">${getCommunityName(s.community)}</span> <a class="move-sensor-link" onclick="openMoveSensorModal('${s.id}')">Move &rarr;</a></p></div>
-            <div class="info-item"><label>Location</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'location')">${s.location || '—'}</p></div>
+            <div class="info-item"><label>Community</label><p class="hover-edit-field">${getCommunityName(s.community)} <span class="hover-edit-icon" onclick="openInlineCommunityChange('${s.id}')">&#9998;</span> <a class="move-sensor-link" onclick="openMoveSensorModal('${s.id}')">Move &rarr;</a></p></div>
+            <div class="info-item"><label>Location</label><p class="hover-edit-field">${s.location || '—'} <span class="hover-edit-icon" onclick="inlineEditSensor('${s.id}', 'location')">&#9998;</span></p></div>
             <div class="info-item"><label>Install Date</label><p>${s.dateInstalled || '—'} <a class="move-sensor-link" onclick="viewInstallHistory()">View history &rarr;</a></p></div>
-            <div class="info-item"><label>Purchase Date</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'datePurchased')">${s.datePurchased || '—'}</p></div>
-            <div class="info-item"><label>Collocation Dates</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'collocationDates')">${s.collocationDates || '—'}</p></div>
+            <div class="info-item"><label>Purchase Date</label><p class="hover-edit-field">${s.datePurchased || '—'} <span class="hover-edit-icon" onclick="inlineEditSensor('${s.id}', 'datePurchased')">&#9998;</span></p></div>
+            <div class="info-item"><label>Collocation Dates</label><p class="hover-edit-field">${s.collocationDates || '—'} <span class="hover-edit-icon" onclick="inlineEditSensor('${s.id}', 'collocationDates')">&#9998;</span></p></div>
         `;
     }
 
@@ -1482,8 +1482,11 @@ function showCommunityView(communityId) {
     ` <span class="community-tag-edit" onclick="openEditCommunityTags('${communityId}')">+ Edit Tags</span>`;
 
     // Show/hide sub-community button (only for non-child communities)
-    const addSubBtn = document.getElementById('add-sub-community-btn');
-    if (addSubBtn) addSubBtn.style.display = isChildCommunity(communityId) ? 'none' : '';
+    const isDeactivated = isCommunityDeactivated(communityId);
+    const isChild = isChildCommunity(communityId);
+    document.getElementById('add-sub-community-btn').style.display = isChild || isDeactivated ? 'none' : '';
+    document.getElementById('deactivate-community-btn').style.display = isDeactivated ? 'none' : '';
+    document.getElementById('reactivate-community-btn').style.display = isDeactivated ? '' : 'none';
     updatePinButton(communityId);
 
     document.querySelectorAll('.community-list a').forEach(a => a.classList.remove('active'));
@@ -3294,10 +3297,17 @@ function toggleAllSensorCheckboxes(checked) {
 }
 
 function updateBulkActionButton() {
-    const btn = document.getElementById('bulk-action-btn');
     const count = selectedSensors.size;
     document.getElementById('bulk-count').textContent = count;
-    btn.style.display = count > 0 ? '' : 'none';
+    document.getElementById('bulk-action-btn').style.display = count > 0 ? '' : 'none';
+    document.getElementById('bulk-clear-btn').style.display = count > 0 ? '' : 'none';
+}
+
+function clearSensorSelection() {
+    selectedSensors.clear();
+    document.getElementById('select-all-sensors').checked = false;
+    document.querySelectorAll('.sensor-checkbox').forEach(cb => cb.checked = false);
+    updateBulkActionButton();
 }
 
 function openBulkActionModal() {
@@ -3306,7 +3316,8 @@ function openBulkActionModal() {
     populateGroupedCommunitySelect('bulk-move-community');
     renderStatusToggleList('bulk-status-list', []);
     document.getElementById('bulk-action-notes').value = '';
-    document.getElementById('bulk-action-type').value = 'move';
+    document.getElementById('bulk-do-move').checked = true;
+    document.getElementById('bulk-do-status').checked = false;
     toggleBulkFields();
     openModal('modal-bulk-action');
 }

@@ -133,7 +133,8 @@
                     <h1>All Sensors</h1>
                     <button class="btn btn-primary" onclick="openAddSensorModal()">+ Add Sensor</button>
                     <button class="btn" onclick="exportSensorsCSV()">Export Spreadsheet</button>
-                    <button class="btn" id="bulk-action-btn" style="display:none" onclick="openBulkActionModal()">Bulk Action (<span id="bulk-count">0</span>)</button>
+                    <button class="btn btn-primary" id="bulk-action-btn" style="display:none" onclick="openBulkActionModal()">Bulk Action (<span id="bulk-count">0</span>)</button>
+                    <button class="btn" id="bulk-clear-btn" style="display:none" onclick="clearSensorSelection()">Clear Selection</button>
                 </div>
                 <div class="filter-bar">
                     <input type="text" id="sensor-search" placeholder="Search sensors..." oninput="renderSensors()">
@@ -199,6 +200,7 @@
                         <button class="btn btn-sm" id="pin-community-btn" onclick="togglePinCommunity(currentCommunity)"><span id="pin-icon">&#9733;</span> <span id="pin-label">Pin</span></button>
                         <button class="btn btn-sm" id="add-sub-community-btn" onclick="openAddSubCommunityModal(currentCommunity)">+ Sub-Community</button>
                         <button class="btn btn-sm btn-danger" id="deactivate-community-btn" onclick="deactivateCommunity(currentCommunity)">Deactivate</button>
+                        <button class="btn btn-sm btn-primary" id="reactivate-community-btn" style="display:none" onclick="reactivateCommunity(currentCommunity)">Reactivate</button>
                     </div>
                 </div>
 
