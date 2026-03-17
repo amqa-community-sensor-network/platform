@@ -188,10 +188,16 @@ function showSignUpForm() {
     hideLoginError();
 }
 
+async function backToSignIn() {
+    await supa.auth.signOut();
+    showSignInForm();
+}
+
 function showSignInForm() {
     document.getElementById('login-form-section').style.display = '';
     document.getElementById('signup-form-section').style.display = 'none';
     document.getElementById('mfa-challenge-section').style.display = 'none';
+    document.getElementById('mfa-setup-section').style.display = 'none';
     hideLoginError();
 }
 

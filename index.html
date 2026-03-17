@@ -45,6 +45,7 @@
                         <input type="text" id="mfa-setup-code" placeholder="000000" maxlength="6" autocomplete="one-time-code" style="text-align:center;font-family:var(--font-mono);font-size:18px;letter-spacing:4px">
                     </div>
                     <button type="submit" class="btn btn-primary" style="width:100%">Verify & Continue</button>
+                    <p class="login-toggle"><a href="#" onclick="backToSignIn(); return false;">Sign in with a different account</a></p>
                 </form>
             </div>
             <form id="mfa-challenge-section" style="display:none" onsubmit="handleMfaVerify(); return false;">
@@ -53,6 +54,7 @@
                     <input type="text" id="mfa-challenge-code" placeholder="000000" maxlength="6" autocomplete="one-time-code" style="text-align:center;font-family:var(--font-mono);font-size:18px;letter-spacing:4px">
                 </div>
                 <button type="submit" class="btn btn-primary" style="width:100%">Verify</button>
+                <p class="login-toggle"><a href="#" onclick="backToSignIn(); return false;">Sign in with a different account</a></p>
             </form>
             <div id="login-loading" style="display:none;text-align:center;padding:20px;color:var(--slate-400)">Loading...</div>
         </div>
