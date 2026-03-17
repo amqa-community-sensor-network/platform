@@ -919,10 +919,22 @@ function inlineSaveContact(el) {
     const c = contacts.find(x => x.id === contactId);
     if (!c) return;
 
+    const newVal = el.value.trim();
+
+    // Validate email
+    if (field === 'email' && newVal && !newVal.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        el.style.borderColor = 'var(--aurora-rose)';
+        return;
+    }
+    el.style.borderColor = '';
+
+    // Track old value for phone/email logging
+    const oldVal = c[field] || '';
+
     if (field === 'active') {
         c.active = el.value === 'true';
     } else {
-        c[field] = el.value.trim();
+        c[field] = newVal;
     }
     // Update tab label if name changed
     if (field === 'name') {
@@ -931,6 +943,22 @@ function inlineSaveContact(el) {
         renderOpenTabs();
     }
     persistContact(c);
+
+    // Auto-log phone/email changes (not in setup mode)
+    if (!setupMode && (field === 'email' || field === 'phone') && oldVal !== newVal) {
+        const label = field === 'email' ? 'Email' : 'Phone';
+        const note = {
+            id: 'n' + Date.now() + Math.random().toString(36).slice(2, 5),
+            date: nowDatetime(),
+            type: 'Info Edit',
+            text: `${c.name} ${label.toLowerCase()} changed from "${oldVal || '(empty)'}" to "${newVal || '(empty)'}".`,
+            createdBy: getCurrentUserName(),
+            taggedSensors: [],
+            taggedCommunities: c.community ? [c.community] : [],
+            taggedContacts: [contactId],
+        };
+        notes.push(note); persistNote(note);
+    }
 }
 
 function openAddSensorModal() {
@@ -1700,24 +1728,37 @@ function saveContact(e) {
     e.preventDefault();
     const editId = document.getElementById('contact-edit-id').value;
     const isActive = document.getElementById('contact-active-yes').checked;
+    const emailVal = document.getElementById('contact-email-input').value.trim();
+    if (emailVal && !emailVal.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        alert('Please enter a valid email address.');
+        return;
+    }
+
     const data = {
         id: editId || 'c' + Date.now(),
         name: document.getElementById('contact-name-input').value.trim(),
         role: document.getElementById('contact-role-input').value.trim(),
         community: document.getElementById('contact-community-input').value,
-        email: document.getElementById('contact-email-input').value.trim(),
+        email: emailVal,
         phone: document.getElementById('contact-phone-input').value.trim(),
         org: document.getElementById('contact-org-input').value.trim(),
         active: isActive,
     };
 
-    let statusChanged = null; // 'deactivated' or 'reactivated' or null
+    let statusChanged = null;
+    let emailChanged = false;
+    let phoneChanged = false;
+    let oldEmail = '';
+    let oldPhone = '';
+
     if (editId) {
         const old = contacts.find(c => c.id === editId);
         if (old) {
             const wasActive = old.active !== false;
             if (wasActive && !isActive) statusChanged = 'deactivated';
             else if (!wasActive && isActive) statusChanged = 'reactivated';
+            if ((old.email || '') !== data.email) { emailChanged = true; oldEmail = old.email || ''; }
+            if ((old.phone || '') !== data.phone) { phoneChanged = true; oldPhone = old.phone || ''; }
         }
         const idx = contacts.findIndex(c => c.id === editId);
         if (idx >= 0) contacts[idx] = data;
@@ -1730,6 +1771,22 @@ function saveContact(e) {
     persistContact(data);
     closeModal('modal-add-contact');
     renderContacts();
+
+    // Auto-log email/phone changes (not in setup mode)
+    if (!setupMode && editId) {
+        if (emailChanged) {
+            const note = { id: 'n' + Date.now() + 'e', date: nowDatetime(), type: 'Info Edit',
+                text: `${data.name} email changed from "${oldEmail || '(empty)'}" to "${data.email || '(empty)'}".`,
+                createdBy: getCurrentUserName(), taggedSensors: [], taggedCommunities: data.community ? [data.community] : [], taggedContacts: [data.id] };
+            notes.push(note); persistNote(note);
+        }
+        if (phoneChanged) {
+            const note = { id: 'n' + Date.now() + 'p', date: nowDatetime(), type: 'Info Edit',
+                text: `${data.name} phone changed from "${oldPhone || '(empty)'}" to "${data.phone || '(empty)'}".`,
+                createdBy: getCurrentUserName(), taggedSensors: [], taggedCommunities: data.community ? [data.community] : [], taggedContacts: [data.id] };
+            notes.push(note); persistNote(note);
+        }
+    }
 
     // Refresh contact detail if viewing, and update tab label
     if (currentContact === data.id) {
