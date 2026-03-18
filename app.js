@@ -4095,8 +4095,7 @@ function updateSidebarServiceCount() {
     const count = getActiveTicketCount();
     const el = document.getElementById('sidebar-service-count');
     if (!el) return;
-    el.textContent = count;
-    el.style.display = count > 0 ? '' : 'none';
+    el.textContent = `(${count})`;
 }
 
 function renderServiceView() {
