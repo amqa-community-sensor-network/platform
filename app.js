@@ -1115,7 +1115,8 @@ function renderSensorCell(s, col) {
     if (setupMode) {
         if (key === 'status') {
             const cs = getStatusArray(s);
-            return `<td><select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple>
+            return `<td><select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple onchange="inlineSaveSensor(this)">
+                <option value="" ${cs.length === 0 ? 'selected' : ''}>— No Status —</option>
                 ${ALL_STATUSES.map(st => `<option value="${st}" ${cs.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
             </select></td>`;
         }
@@ -1199,7 +1200,7 @@ function inlineSaveSensor(el) {
     if (!s) return;
 
     if (field === 'status') {
-        s.status = Array.from(el.selectedOptions).map(o => o.value);
+        s.status = Array.from(el.selectedOptions).map(o => o.value).filter(v => v !== '');
         buildSensorSidebar();
     } else {
         s[field] = el.value.trim();
@@ -1592,6 +1593,7 @@ function showSensorView(sensorId) {
             </div>
             <div class="info-item"><label>Status</label>
                 <select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple onchange="inlineSaveSensor(this)">
+                    <option value="" ${currentStatuses.length === 0 ? 'selected' : ''}>— No Status —</option>
                     ${ALL_STATUSES.map(st => `<option value="${st}" ${currentStatuses.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
                 </select>
             </div>
@@ -1784,6 +1786,7 @@ function showCommunityView(communityId) {
                     </td>
                     <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
                     <td><select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple onchange="inlineSaveSensor(this)">
+                        <option value="" ${currentStatuses.length === 0 ? 'selected' : ''}>— No Status —</option>
                         ${ALL_STATUSES.map(st => `<option value="${st}" ${currentStatuses.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
                     </select></td>
                     <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Address or GPS" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
