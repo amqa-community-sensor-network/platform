@@ -2831,6 +2831,19 @@ th:hover .field-reorder-btns {
 .dark-mode .ticket-step.pending .ticket-step-label { color: #475569; }
 .dark-mode .ticket-edit-input { background: #151e2b; border-color: rgba(255,255,255,0.1); color: #e2e8f0; }
 
+/* ===== UNDO LINK ===== */
+.undo-link {
+    font-size: 11px;
+    color: var(--slate-400);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.undo-link:hover {
+    color: var(--slate-600);
+    text-decoration: underline;
+}
+
 /* ===== AUDITS ===== */
 .audit-pipeline { display: flex; flex-direction: column; gap: 16px; }
 .audit-pipeline-column { background: var(--slate-50); border-radius: var(--radius-md); padding: 14px; }

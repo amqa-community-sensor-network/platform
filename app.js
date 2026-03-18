@@ -4194,6 +4194,7 @@ function openTicketDetail(ticketId) {
         <div class="ticket-detail-actions">
             <button class="btn" onclick="closeModal('modal-service-ticket')">Done</button>
             ${isOpen && nextStatus ? `<button class="btn btn-primary" onclick="advanceTicketStatus('${ticket.id}')">Advance to: ${nextStatus}</button>` : ''}
+            ${statusIndex > 0 && isOpen ? `<a class="undo-link" onclick="revertTicketStatus('${ticket.id}')">undo last advance</a>` : ''}
             ${isOpen ? `<button class="btn btn-danger" onclick="openCloseTicketModal('${ticket.id}')">Close Out Ticket</button>` : ''}
         </div>`;
     openModal('modal-service-ticket');
@@ -4229,6 +4230,21 @@ function advanceTicketStatus(ticketId) {
     createNote('Service', `Service ticket advanced: "${oldStatus}" → "${newStatus}".`, { sensors: [ticket.sensorId] });
     openTicketDetail(ticketId);
     updateSidebarServiceCount();
+}
+
+function revertTicketStatus(ticketId) {
+    const ticket = serviceTickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+    const idx = TICKET_STATUSES.indexOf(ticket.status);
+    if (idx <= 0) return;
+    const oldStatus = ticket.status;
+    ticket.status = TICKET_STATUSES[idx - 1];
+    persistServiceTicketUpdate(ticketId, { status: ticket.status });
+    createNote('Service', `Service ticket reverted: "${oldStatus}" \u2192 "${ticket.status}".`, { sensors: [ticket.sensorId] });
+    closeModal('modal-service-ticket');
+    setTimeout(() => openTicketDetail(ticketId), 100);
+    updateSidebarServiceCount();
+    if (document.getElementById('view-service')?.classList.contains('active')) renderServiceView();
 }
 
 function openNewTicketModal(preselectedSensorId) {
@@ -4485,6 +4501,7 @@ function openAuditDetail(auditId) {
         <div class="ticket-detail-actions" style="border-top:none;padding-top:8px">
             <button class="btn" onclick="closeModal('modal-audit-detail')">Done</button>
             ${nextStatus ? `<button class="btn btn-primary" onclick="advanceAuditStatus('${audit.id}')">Advance to: ${nextStatus}</button>` : ''}
+            ${idx > 0 && isEditable ? `<a class="undo-link" onclick="revertAuditStatus('${audit.id}')">undo last advance</a>` : ''}
             ${audit.status === 'Complete' || audit.status === 'Analysis Pending' ? `<button class="btn" onclick="beginAnalysis('${audit.id}')" style="border-color:var(--navy-500);color:var(--navy-500)">Begin Analysis</button>` : ''}
         </div>
         <div class="ticket-detail-grid">
@@ -4557,6 +4574,22 @@ function advanceAuditStatus(auditId) {
     createNote('Audit', `Audit advanced: "${oldStatus}" \u2192 "${newStatus}" for ${communityName}.`, { sensors: [audit.auditPodId, audit.communityPodId], communities: [audit.communityId] });
     closeModal('modal-audit-detail');
     setTimeout(() => { openAuditDetail(auditId); }, 100);
+    updateSidebarAuditCount();
+    if (document.getElementById('view-audits')?.classList.contains('active')) renderAuditsView();
+}
+
+function revertAuditStatus(auditId) {
+    const audit = audits.find(a => a.id === auditId);
+    if (!audit) return;
+    const idx = AUDIT_STATUSES.indexOf(audit.status);
+    if (idx <= 0) return;
+    const oldStatus = audit.status;
+    audit.status = AUDIT_STATUSES[idx - 1];
+    persistAuditUpdate(auditId, { status: audit.status });
+    const communityName = COMMUNITIES.find(c => c.id === audit.communityId)?.name || '';
+    createNote('Audit', `Audit reverted: "${oldStatus}" \u2192 "${audit.status}" for ${communityName}.`, { sensors: [audit.auditPodId, audit.communityPodId], communities: [audit.communityId] });
+    closeModal('modal-audit-detail');
+    setTimeout(() => openAuditDetail(auditId), 100);
     updateSidebarAuditCount();
     if (document.getElementById('view-audits')?.classList.contains('active')) renderAuditsView();
 }
