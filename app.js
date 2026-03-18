@@ -4236,8 +4236,10 @@ function advanceTicketStatus(ticketId) {
     }
 
     createNote('Service', `Service ticket advanced: "${oldStatus}" → "${newStatus}".`, { sensors: [ticket.sensorId] });
-    openTicketDetail(ticketId);
+    closeModal('modal-service-ticket');
+    setTimeout(() => openTicketDetail(ticketId), 100);
     updateSidebarServiceCount();
+    if (document.getElementById('view-service')?.classList.contains('active')) renderServiceView();
 }
 
 function revertTicketStatus(ticketId) {
