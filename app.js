@@ -893,7 +893,7 @@ function getCommunityName(id) {
     return c ? c.name : id || '—';
 }
 
-const DEFAULT_SENSOR_COLUMNS = [
+const ALL_SENSOR_COLUMNS = [
     { key: 'soaTagId', label: 'SOA Tag ID', sortable: true, removable: true },
     { key: 'status', label: 'Status', sortable: true, removable: false },
     { key: 'community', label: 'Community', sortable: true, removable: false },
@@ -904,11 +904,35 @@ const DEFAULT_SENSOR_COLUMNS = [
 ];
 
 let hiddenColumns = loadData('hiddenSensorColumns', []);
+let columnOrder = loadData('sensorColumnOrder', null);
+
+function buildColumnList() {
+    // All possible columns: built-in + custom
+    const builtIn = ALL_SENSOR_COLUMNS.map(c => ({ ...c, isCustom: false }));
+    const custom = customSensorFields.map(cf => ({ key: 'custom_' + cf.key, label: cf.label, sortable: false, removable: true, isCustom: true, customKey: cf.key }));
+    const all = [...builtIn, ...custom];
+
+    // Apply saved order if exists
+    if (columnOrder) {
+        const ordered = [];
+        columnOrder.forEach(key => {
+            const col = all.find(c => c.key === key);
+            if (col) ordered.push(col);
+        });
+        // Add any new columns not in saved order
+        all.forEach(c => { if (!ordered.find(o => o.key === c.key)) ordered.push(c); });
+        return ordered;
+    }
+    return all;
+}
 
 function getVisibleColumns() {
-    const cols = DEFAULT_SENSOR_COLUMNS.filter(c => !hiddenColumns.includes(c.key));
-    const custom = customSensorFields.map(cf => ({ key: 'custom_' + cf.key, label: cf.label, sortable: false, removable: true, isCustom: true, customKey: cf.key }));
-    return [...cols, ...custom];
+    return buildColumnList().filter(c => !hiddenColumns.includes(c.key));
+}
+
+function saveColumnOrder() {
+    columnOrder = buildColumnList().map(c => c.key);
+    saveData('sensorColumnOrder', columnOrder);
 }
 
 function renderSensorTableHeader() {
@@ -963,21 +987,36 @@ function restoreHiddenColumns() {
 }
 
 function moveColumn(currentIndex, direction) {
-    const cols = getVisibleColumns();
-    const col = cols[currentIndex];
+    const visible = getVisibleColumns();
+    const col = visible[currentIndex];
     const targetIndex = currentIndex + direction;
-    if (targetIndex < 0 || targetIndex >= cols.length) return;
-    const target = cols[targetIndex];
+    if (targetIndex < 0 || targetIndex >= visible.length) return;
 
-    // Reorder by swapping in the underlying arrays
-    if (col.isCustom && target.isCustom) {
+    // Work with the full list (including hidden) to swap correctly
+    const full = buildColumnList();
+    const colIdx = full.findIndex(c => c.key === col.key);
+    const targetCol = visible[targetIndex];
+    const targetIdx = full.findIndex(c => c.key === targetCol.key);
+
+    if (colIdx < 0 || targetIdx < 0) return;
+
+    // Swap in full list
+    [full[colIdx], full[targetIdx]] = [full[targetIdx], full[colIdx]];
+
+    // Also swap in customSensorFields if both are custom (to persist)
+    if (col.isCustom && targetCol.isCustom) {
         const ci = customSensorFields.findIndex(f => f.key === col.customKey);
-        const ti = customSensorFields.findIndex(f => f.key === target.customKey);
-        [customSensorFields[ci], customSensorFields[ti]] = [customSensorFields[ti], customSensorFields[ci]];
-        saveData('customSensorFields', customSensorFields);
+        const ti = customSensorFields.findIndex(f => f.key === targetCol.customKey);
+        if (ci >= 0 && ti >= 0) {
+            [customSensorFields[ci], customSensorFields[ti]] = [customSensorFields[ti], customSensorFields[ci]];
+            saveData('customSensorFields', customSensorFields);
+        }
     }
-    // For mixed default+custom reorder, we'd need a full column order list
-    // For now, custom fields reorder among themselves
+
+    // Save the new order
+    columnOrder = full.map(c => c.key);
+    saveData('sensorColumnOrder', columnOrder);
+
     renderSensorTableHeader();
     renderSensors();
 }
@@ -1040,7 +1079,7 @@ function renderSensors() {
     });
 
     const cols = getVisibleColumns();
-    const totalCols = cols.length + 2; // +2 for checkbox and actions
+    const totalCols = cols.length + 3; // checkbox + sensor ID + actions
 
     document.getElementById('sensors-tbody').innerHTML = filtered.map(s => {
         const checkbox = `<td><input type="checkbox" class="sensor-checkbox" data-sensor-id="${s.id}" onchange="toggleSensorCheckbox('${s.id}', this.checked)" ${selectedSensors.has(s.id) ? 'checked' : ''}></td>`;
