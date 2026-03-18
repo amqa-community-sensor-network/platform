@@ -836,10 +836,7 @@ function filterCommunitiesByTag(tag) {
     showView('communities');
 }
 
-function clearCommunityTagFilter() {
-    communityTagFilter = '';
-    renderCommunitiesList();
-}
+
 
 // ===== SENSORS =====
 function getStatusBadgeClass(status) {
