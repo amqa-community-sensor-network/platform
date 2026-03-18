@@ -909,11 +909,11 @@
             </div>
             <form onsubmit="saveNewTicket(event)">
                 <div class="form-group"><label>Sensor</label><select id="ticket-sensor-input" required></select></div>
-                <div class="form-group"><label>Ticket Type</label>
-                    <select id="ticket-type-input" required>
-                        <option value="issue">Issue / Repair</option>
-                        <option value="calibration">Calibration</option>
-                    </select>
+                <div class="form-group"><label>Actions Needed (select all that apply)</label>
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:6px 0">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="ticket-type-issue" checked> Issue / Repair</label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" id="ticket-type-calibration"> Calibration</label>
+                    </div>
                 </div>
                 <div class="form-group"><label>Issue Description</label><textarea id="ticket-description-input" rows="4" required placeholder="Describe the issue or reason for service..."></textarea></div>
                 <div class="form-group"><label>RMA Number (if known)</label><input type="text" id="ticket-rma-input" placeholder="e.g. RMA-2026-0042"></div>

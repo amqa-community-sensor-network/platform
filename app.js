@@ -873,6 +873,7 @@ function getStatusBadgeClass(status) {
         'SD Card Issue': 'badge-issue-yellow',
         'Power Failure': 'badge-issue-red',
         'Lost Connection': 'badge-issue-red',
+        'Quant Ticket in Progress': 'badge-service-quant',
     };
     return map[status] || 'badge-offline';
 }
@@ -898,6 +899,11 @@ function renderStatusBadges(s, clickable) {
     }
     return statuses.map(st => {
         const cls = clickable ? 'badge-clickable' : '';
+        if (st === 'Quant Ticket in Progress' && clickable) {
+            const activeTicket = getActiveTicketsForSensor(s.id)[0];
+            const ticketClick = activeTicket ? `onclick="openTicketDetail('${activeTicket.id}')"` : `onclick="openStatusChangeModal('${s.id}')"`;
+            return `<span class="badge ${getStatusBadgeClass(st)} ${cls}" ${ticketClick}>${st}</span>`;
+        }
         const onclick = clickable ? `onclick="openStatusChangeModal('${s.id}')"` : '';
         return `<span class="badge ${getStatusBadgeClass(st)} ${cls}" ${onclick}>${st}</span>`;
     }).join(' ');
@@ -3069,7 +3075,8 @@ function addCustomTag() {
 const ALL_STATUSES = [
     'Online', 'Offline', 'In Transit', 'Service at Quant', 'Collocation',
     'Auditing a Community', 'Lab Storage', 'Needs Repair', 'Ready for Deployment',
-    'PM Sensor Issue', 'Gaseous Sensor Issue', 'SD Card Issue', 'Power Failure', 'Lost Connection'
+    'PM Sensor Issue', 'Gaseous Sensor Issue', 'SD Card Issue', 'Power Failure', 'Lost Connection',
+    'Quant Ticket in Progress'
 ];
 
 function renderStatusToggleList(containerId, selectedStatuses) {
@@ -4060,6 +4067,11 @@ const TICKET_STATUSES = ['Ticket Opened', 'RMA Assigned', 'Shipped to Quant', 'A
 const TICKET_STATUS_CSS = { 'Ticket Opened': 'ts-opened', 'RMA Assigned': 'ts-rma', 'Shipped to Quant': 'ts-shipped-to', 'At Quant': 'ts-at-quant', 'Shipped from Quant': 'ts-shipped-from', 'Received': 'ts-received', 'Closed': 'ts-closed' };
 
 function getActiveTicketCount() { return serviceTickets.filter(t => t.status !== 'Closed').length; }
+function formatTicketType(type) {
+    if (type === 'issue+calibration') return 'Issue + Calibration';
+    if (type === 'calibration') return 'Calibration';
+    return 'Issue / Repair';
+}
 function getActiveTicketsForSensor(sensorId) { return serviceTickets.filter(t => t.sensorId === sensorId && t.status !== 'Closed'); }
 
 function updateSidebarServiceCount() {
@@ -4075,7 +4087,7 @@ function renderServiceView() {
     const typeFilter = document.getElementById('service-type-filter')?.value || '';
     const showClosed = document.getElementById('service-show-closed')?.checked || false;
     let tickets = [...serviceTickets];
-    if (typeFilter) tickets = tickets.filter(t => t.ticketType === typeFilter);
+    if (typeFilter) tickets = tickets.filter(t => t.ticketType.includes(typeFilter));
     if (!showClosed) tickets = tickets.filter(t => t.status !== 'Closed');
 
     const pipeline = document.getElementById('service-pipeline');
@@ -4098,7 +4110,7 @@ function renderTicketCard(ticket) {
     return `<div class="service-ticket-card ticket-type-${ticket.ticketType}" onclick="openTicketDetail('${ticket.id}')">
         <div style="display:flex;justify-content:space-between;align-items:center">
             <span class="ticket-sensor-id">${ticket.sensorId}</span>
-            <span class="ticket-type-label">${ticket.ticketType}</span>
+            <span class="ticket-type-label">${formatTicketType(ticket.ticketType)}</span>
         </div>
         ${ticket.issueDescription ? `<div class="ticket-description">${escapeHtml(ticket.issueDescription)}</div>` : ''}
         <div class="ticket-meta">
@@ -4122,7 +4134,7 @@ function openTicketDetail(ticketId) {
     document.getElementById('service-ticket-modal-body').innerHTML = `
         <div class="ticket-detail-grid">
             <div class="ticket-field"><label>Sensor</label><p><a href="#" onclick="closeModal('modal-service-ticket'); showSensorDetail('${ticket.sensorId}'); return false;" style="color:var(--navy-500)">${ticket.sensorId}</a></p></div>
-            <div class="ticket-field"><label>Type</label><p>${ticket.ticketType === 'issue' ? 'Issue / Repair' : 'Calibration'}</p></div>
+            <div class="ticket-field"><label>Actions Needed</label><p>${formatTicketType(ticket.ticketType)}</p></div>
             <div class="ticket-field"><label>Status</label><p><span class="ticket-status-badge ${TICKET_STATUS_CSS[ticket.status] || ''}">${ticket.status}</span></p></div>
             <div class="ticket-field"><label>Opened</label><p>${escapeHtml(ticket.createdBy)} on ${new Date(ticket.createdAt).toLocaleDateString()}</p></div>
             <div class="ticket-field full-width"><label>Issue Description</label><p>${escapeHtml(ticket.issueDescription) || '—'}</p></div>
@@ -4160,7 +4172,11 @@ function advanceTicketStatus(ticketId) {
     const sensorStatusMap = { 'Shipped to Quant': ['In Transit'], 'At Quant': ['Service at Quant'] };
     if (sensorStatusMap[newStatus]) {
         const s = sensors.find(x => x.id === ticket.sensorId);
-        if (s) { s.status = sensorStatusMap[newStatus]; persistSensor(s); buildSensorSidebar(); }
+        if (s) {
+            const current = getStatusArray(s).filter(st => st !== 'Quant Ticket in Progress' && !sensorStatusMap[newStatus].includes(st));
+            s.status = [...current, ...sensorStatusMap[newStatus]];
+            persistSensor(s); buildSensorSidebar();
+        }
     }
 
     createNote('Service', `Service ticket advanced: "${oldStatus}" → "${newStatus}".`, { sensors: [ticket.sensorId] });
@@ -4183,10 +4199,17 @@ function openTicketFromSensor(sensorId) { openNewTicketModal(sensorId); }
 async function saveNewTicket(event) {
     event.preventDefault();
     const sensorId = document.getElementById('ticket-sensor-input').value;
-    const ticketType = document.getElementById('ticket-type-input').value;
+    const isIssue = document.getElementById('ticket-type-issue').checked;
+    const isCalibration = document.getElementById('ticket-type-calibration').checked;
     const description = document.getElementById('ticket-description-input').value.trim();
     const rmaNumber = document.getElementById('ticket-rma-input').value.trim();
     if (!sensorId || !description) return;
+    if (!isIssue && !isCalibration) { alert('Select at least one action needed.'); return; }
+
+    const actions = [];
+    if (isIssue) actions.push('Issue / Repair');
+    if (isCalibration) actions.push('Calibration');
+    const ticketType = isIssue && isCalibration ? 'issue+calibration' : isIssue ? 'issue' : 'calibration';
 
     const ticket = { sensorId, ticketType, status: rmaNumber ? 'RMA Assigned' : 'Ticket Opened',
         rmaNumber, fedexTrackingTo: '', fedexTrackingFrom: '', issueDescription: description,
@@ -4197,12 +4220,19 @@ async function saveNewTicket(event) {
         serviceTickets.unshift(saved);
     } catch (err) { handleSaveError(err); ticket.id = generateId('tkt'); serviceTickets.unshift(ticket); }
 
+    // Tag sensor with 'Quant Ticket in Progress' instead of 'Service at Quant'
     const s = sensors.find(x => x.id === sensorId);
-    if (s && !getStatusArray(s).includes('Service at Quant')) {
-        s.status = ['Service at Quant']; persistSensor(s); buildSensorSidebar();
+    if (s) {
+        const currentStatuses = getStatusArray(s);
+        if (!currentStatuses.includes('Quant Ticket in Progress')) {
+            currentStatuses.push('Quant Ticket in Progress');
+            s.status = currentStatuses;
+            persistSensor(s);
+            buildSensorSidebar();
+        }
     }
 
-    createNote('Service', `Service ticket opened (${ticketType}): ${description}`, { sensors: [sensorId] });
+    createNote('Service', `Service ticket opened (${actions.join(' + ')}): ${description}`, { sensors: [sensorId] });
     closeModal('modal-new-service-ticket');
     updateSidebarServiceCount();
     if (document.getElementById('view-service')?.classList.contains('active')) renderServiceView();
@@ -4215,7 +4245,7 @@ function openCloseTicketModal(ticketId) {
     document.getElementById('close-ticket-sensor-label').textContent = ticket.sensorId;
     document.getElementById('close-ticket-id').value = ticketId;
     document.getElementById('close-ticket-work').value = ticket.workCompleted || '';
-    renderStatusToggleList('close-ticket-status', ['Online']);
+    renderStatusToggleList('close-ticket-status', ['Online', 'Ready for Deployment']);
     closeModal('modal-service-ticket');
     openModal('modal-close-ticket');
 }
@@ -4232,9 +4262,14 @@ function confirmCloseTicket() {
     if (workCompleted) ticket.workCompleted = workCompleted;
     persistServiceTicketUpdate(ticketId, { status: 'Closed', closedAt: ticket.closedAt, workCompleted: ticket.workCompleted });
 
-    if (newStatuses.length > 0) {
-        const s = sensors.find(x => x.id === ticket.sensorId);
-        if (s) { s.status = newStatuses; persistSensor(s); buildSensorSidebar(); }
+    const s = sensors.find(x => x.id === ticket.sensorId);
+    if (s) {
+        // Remove 'Quant Ticket in Progress' if no other active tickets
+        const otherActive = serviceTickets.filter(t => t.sensorId === ticket.sensorId && t.status !== 'Closed' && t.id !== ticketId);
+        let finalStatuses = newStatuses.length > 0 ? newStatuses : getStatusArray(s).filter(st => st !== 'Quant Ticket in Progress');
+        if (otherActive.length === 0) finalStatuses = finalStatuses.filter(st => st !== 'Quant Ticket in Progress');
+        s.status = finalStatuses.length > 0 ? finalStatuses : ['Online'];
+        persistSensor(s); buildSensorSidebar();
     }
 
     createNote('Service', `Service ticket closed.${workCompleted ? ' Work completed: ' + workCompleted : ''}`, { sensors: [ticket.sensorId] });

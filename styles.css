@@ -2753,6 +2753,9 @@ th:hover .field-reorder-btns {
 }
 
 /* ===== SERVICE TICKETS ===== */
+.badge-service-quant { background: rgba(167, 139, 250, 0.12); color: #6d28d9; }
+.badge-service-quant::before { background: #8b5cf6; box-shadow: 0 0 6px rgba(139, 92, 246, 0.4); }
+
 .service-badge-count { background: var(--aurora-rose); color: white; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; margin-left: auto; }
 .btn-service { background: rgba(167, 139, 250, 0.1); color: #6d28d9; border: 1px solid rgba(167, 139, 250, 0.3); }
 .btn-service:hover { background: rgba(167, 139, 250, 0.2); }
@@ -2765,6 +2768,7 @@ th:hover .field-reorder-btns {
 .service-ticket-card:hover { box-shadow: var(--shadow-md); }
 .service-ticket-card.ticket-type-issue { border-left-color: var(--aurora-rose); }
 .service-ticket-card.ticket-type-calibration { border-left-color: var(--aurora-amber); }
+.service-ticket-card.ticket-type-issue\+calibration { border-left-color: var(--aurora-violet); }
 .ticket-sensor-id { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--slate-800); }
 .ticket-type-label { font-size: 10px; color: var(--slate-400); text-transform: uppercase; letter-spacing: 0.5px; }
 .ticket-meta { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--slate-500); flex-wrap: wrap; }
