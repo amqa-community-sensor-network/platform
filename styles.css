@@ -2690,6 +2690,31 @@ th:hover .delete-field-btn {
     color: var(--aurora-rose);
 }
 
+.field-reorder-btns {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+th:hover .field-reorder-btns {
+    opacity: 1;
+}
+
+.field-arrow {
+    font-size: 10px;
+    color: var(--slate-400);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+}
+
+.field-arrow:hover {
+    color: var(--navy-600);
+    background: rgba(37, 99, 176, 0.1);
+}
+
 /* ===== EXPORT FIELD SELECTION ===== */
 .export-fields-list {
     display: flex;

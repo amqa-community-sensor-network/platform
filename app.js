@@ -893,41 +893,120 @@ function getCommunityName(id) {
     return c ? c.name : id || '—';
 }
 
+const DEFAULT_SENSOR_COLUMNS = [
+    { key: 'soaTagId', label: 'SOA Tag ID', sortable: true, removable: true },
+    { key: 'status', label: 'Status', sortable: true, removable: false },
+    { key: 'community', label: 'Community', sortable: true, removable: false },
+    { key: 'location', label: 'Location', sortable: true, removable: true },
+    { key: 'dateInstalled', label: 'Install Date', sortable: true, removable: true },
+    { key: 'datePurchased', label: 'Purchase Date', sortable: true, removable: true },
+    { key: 'collocationDates', label: 'Collocation Dates', sortable: false, removable: true },
+];
+
+let hiddenColumns = loadData('hiddenSensorColumns', []);
+
+function getVisibleColumns() {
+    const cols = DEFAULT_SENSOR_COLUMNS.filter(c => !hiddenColumns.includes(c.key));
+    const custom = customSensorFields.map(cf => ({ key: 'custom_' + cf.key, label: cf.label, sortable: false, removable: true, isCustom: true, customKey: cf.key }));
+    return [...cols, ...custom];
+}
+
 function renderSensorTableHeader() {
-    const cfHeaders = customSensorFields.map(cf =>
-        `<th>${cf.label}${setupMode ? ` <span class="delete-field-btn" onclick="event.stopPropagation(); deleteCustomField('${cf.key}')" title="Delete field">&times;</span>` : ''}</th>`
-    ).join('');
+    const cols = getVisibleColumns();
+    const colHeaders = cols.map((col, i) => {
+        let controls = '';
+        if (setupMode) {
+            const arrows = `<span class="field-reorder-btns">${i > 0 ? `<span class="field-arrow" onclick="event.stopPropagation(); moveColumn(${i}, -1)" title="Move left">&#9664;</span>` : ''}${i < cols.length - 1 ? `<span class="field-arrow" onclick="event.stopPropagation(); moveColumn(${i}, 1)" title="Move right">&#9654;</span>` : ''}</span>`;
+            const del = col.removable ? `<span class="delete-field-btn" onclick="event.stopPropagation(); hideOrDeleteColumn('${col.key}')" title="Remove column">&times;</span>` : '';
+            controls = arrows + del;
+        }
+        const sortAttr = col.sortable ? `class="sortable-th" onclick="sortSensorsBy('${col.key.replace('custom_', '')}')"` : '';
+        return `<th ${sortAttr}>${col.label}${controls}</th>`;
+    }).join('');
+
     document.getElementById('sensors-table-header').innerHTML = `
         <th style="width:30px"><input type="checkbox" id="select-all-sensors" onchange="toggleAllSensorCheckboxes(this.checked)" aria-label="Select all sensors"></th>
         <th class="sortable-th" onclick="sortSensorsBy('id')">Sensor ID</th>
-        <th class="sortable-th" onclick="sortSensorsBy('soaTagId')">SOA Tag ID</th>
-        <th class="sortable-th" onclick="sortSensorsBy('status')">Status</th>
-        <th class="sortable-th" onclick="sortSensorsBy('community')">Community</th>
-        <th class="sortable-th" onclick="sortSensorsBy('location')">Location</th>
-        <th class="sortable-th" onclick="sortSensorsBy('dateInstalled')">Install Date</th>
-        <th class="sortable-th" onclick="sortSensorsBy('datePurchased')">Purchase Date</th>
-        <th>Collocation Dates</th>
-        ${cfHeaders}
-        <th>Actions${setupMode ? ' <button class="btn btn-sm" onclick="event.stopPropagation(); openAddFieldModal()" style="margin-left:4px;padding:2px 6px;font-size:10px">+ Field</button>' : ''}</th>
+        ${colHeaders}
+        <th>Actions${setupMode ? ` <button class="btn btn-sm" onclick="event.stopPropagation(); openAddFieldModal()" style="margin-left:4px;padding:2px 6px;font-size:10px">+ Field</button>${hiddenColumns.length > 0 ? ` <button class="btn btn-sm" onclick="event.stopPropagation(); restoreHiddenColumns()" style="padding:2px 6px;font-size:10px">Restore (${hiddenColumns.length})</button>` : ''}` : ''}</th>
     `;
 }
 
-function deleteCustomField(fieldKey) {
-    const cf = customSensorFields.find(f => f.key === fieldKey);
-    if (!cf) return;
-    if (!confirm(`Permanently delete the "${cf.label}" field? This will remove this field and all its data from every sensor. This cannot be undone.`)) return;
-
-    customSensorFields = customSensorFields.filter(f => f.key !== fieldKey);
-    saveData('customSensorFields', customSensorFields);
-
-    sensors.forEach(s => {
-        if (s.customFields) delete s.customFields[fieldKey];
-    });
-    saveCustomFieldData();
-
+function hideOrDeleteColumn(key) {
+    if (key.startsWith('custom_')) {
+        const cfKey = key.replace('custom_', '');
+        const cf = customSensorFields.find(f => f.key === cfKey);
+        if (!cf) return;
+        if (!confirm(`Permanently delete "${cf.label}"? This removes the field and all its data from every sensor. This cannot be undone.`)) return;
+        customSensorFields = customSensorFields.filter(f => f.key !== cfKey);
+        saveData('customSensorFields', customSensorFields);
+        sensors.forEach(s => { if (s.customFields) delete s.customFields[cfKey]; });
+        saveCustomFieldData();
+    } else {
+        const col = DEFAULT_SENSOR_COLUMNS.find(c => c.key === key);
+        if (!confirm(`Hide "${col?.label || key}" column? You can restore it later in setup mode.`)) return;
+        hiddenColumns.push(key);
+        saveData('hiddenSensorColumns', hiddenColumns);
+    }
     renderSensorTableHeader();
     renderSensors();
     if (currentSensor) showSensorView(currentSensor);
+}
+
+function restoreHiddenColumns() {
+    const names = hiddenColumns.map(key => DEFAULT_SENSOR_COLUMNS.find(c => c.key === key)?.label || key).join(', ');
+    if (!confirm(`Restore hidden columns: ${names}?`)) return;
+    hiddenColumns = [];
+    saveData('hiddenSensorColumns', hiddenColumns);
+    renderSensorTableHeader();
+    renderSensors();
+}
+
+function moveColumn(currentIndex, direction) {
+    const cols = getVisibleColumns();
+    const col = cols[currentIndex];
+    const targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= cols.length) return;
+    const target = cols[targetIndex];
+
+    // Reorder by swapping in the underlying arrays
+    if (col.isCustom && target.isCustom) {
+        const ci = customSensorFields.findIndex(f => f.key === col.customKey);
+        const ti = customSensorFields.findIndex(f => f.key === target.customKey);
+        [customSensorFields[ci], customSensorFields[ti]] = [customSensorFields[ti], customSensorFields[ci]];
+        saveData('customSensorFields', customSensorFields);
+    }
+    // For mixed default+custom reorder, we'd need a full column order list
+    // For now, custom fields reorder among themselves
+    renderSensorTableHeader();
+    renderSensors();
+}
+
+function renderSensorCell(s, col) {
+    const key = col.isCustom ? col.customKey : col.key;
+    const val = col.isCustom ? ((s.customFields || {})[key] || '') : (s[key] || '');
+
+    if (setupMode) {
+        if (key === 'status') {
+            const cs = getStatusArray(s);
+            return `<td><select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple>
+                ${ALL_STATUSES.map(st => `<option value="${st}" ${cs.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
+            </select></td>`;
+        }
+        if (key === 'community') {
+            return `<td><select class="inline-edit-select" data-sensor="${s.id}" data-field="community" onchange="inlineSaveSensor(this)">
+                ${('<option value="">— None —</option>' + COMMUNITIES.map(c => `<option value="${c.id}" ${s.community === c.id ? 'selected' : ''}>${c.name}</option>`).join(''))}
+            </select></td>`;
+        }
+        if (key === 'dateInstalled') return `<td>${val || '—'}</td>`;
+        if (col.isCustom) return `<td><input class="inline-edit-input" value="${val}" placeholder="${col.label}" onblur="editCustomFieldInline('${s.id}','${key}',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></td>`;
+        if (key === 'datePurchased') return `<td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="${key}" value="${val}" onblur="inlineSaveSensor(this)"></td>`;
+        return `<td><input class="inline-edit-input" data-sensor="${s.id}" data-field="${key}" value="${val}" placeholder="${col.label}" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>`;
+    }
+
+    if (key === 'status') return `<td>${renderStatusBadges(s, true)}</td>`;
+    if (key === 'community') return `<td><span class="clickable" onclick="showCommunity('${s.community}')">${getCommunityName(s.community)}</span></td>`;
+    return `<td>${val || '—'}</td>`;
 }
 
 function renderSensors() {
@@ -960,71 +1039,28 @@ function renderSensors() {
         return sensorSortAsc ? cmp : -cmp;
     });
 
+    const cols = getVisibleColumns();
+    const totalCols = cols.length + 2; // +2 for checkbox and actions
+
+    document.getElementById('sensors-tbody').innerHTML = filtered.map(s => {
+        const checkbox = `<td><input type="checkbox" class="sensor-checkbox" data-sensor-id="${s.id}" onchange="toggleSensorCheckbox('${s.id}', this.checked)" ${selectedSensors.has(s.id) ? 'checked' : ''}></td>`;
+        const idCell = setupMode
+            ? `<td><span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br>
+                <select class="inline-edit-select inline-edit-sm" data-sensor="${s.id}" data-field="type" onchange="inlineSaveSensor(this)">
+                    ${SENSOR_TYPES.map(t => `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select></td>`
+            : `<td><span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br><small style="color:#888">${s.type}</small></td>`;
+        const dataCells = cols.map(col => renderSensorCell(s, col)).join('');
+        const actions = setupMode
+            ? `<td><button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button></td>`
+            : `<td><button class="btn btn-sm" onclick="openEditSensorModal('${s.id}')">Edit</button> <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button></td>`;
+        return `<tr>${checkbox}${idCell}${dataCells}${actions}</tr>`;
+    }).join('') || `<tr><td colspan="${totalCols}" class="empty-state">No sensors found.</td></tr>`;
+
     if (setupMode) {
-        const communityOptions = '<option value="">— None —</option>' +
-            COMMUNITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-        const statusOptions = ALL_STATUSES.map(st =>
-            `<option value="${st}">${st}</option>`
-        ).join('');
-        const typeOptions = SENSOR_TYPES.map(t =>
-            `<option value="${t}">${t}</option>`
-        ).join('');
-
-        document.getElementById('sensors-tbody').innerHTML = filtered.map(s => {
-            const currentStatuses = getStatusArray(s);
-            const statusSelectHtml = `<select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple title="Hold Ctrl/Cmd to select multiple">
-                ${ALL_STATUSES.map(st => `<option value="${st}" ${currentStatuses.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
-            </select>`;
-
-            return `<tr>
-                <td><input type="checkbox" class="sensor-checkbox" data-sensor-id="${s.id}" onchange="toggleSensorCheckbox('${s.id}', this.checked)" ${selectedSensors.has(s.id) ? 'checked' : ''}></td>
-                <td>
-                    <span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br>
-                    <select class="inline-edit-select inline-edit-sm" data-sensor="${s.id}" data-field="type" onchange="inlineSaveSensor(this)">
-                        ${SENSOR_TYPES.map(t =>
-                            `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`
-                        ).join('')}
-                    </select>
-                </td>
-                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
-                <td>${statusSelectHtml}</td>
-                <td><select class="inline-edit-select" data-sensor="${s.id}" data-field="community" onchange="inlineSaveSensor(this)">
-                    ${('<option value="">— None —</option>' + COMMUNITIES.map(c => `<option value="${c.id}" ${s.community === c.id ? 'selected' : ''}>${c.name}</option>`).join(''))}
-                </select></td>
-                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Address or GPS" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
-                <td>${s.dateInstalled || '—'}</td>
-                <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)"></td>
-                <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Mar 5-13" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
-                ${customSensorFields.map(cf => `<td><input class="inline-edit-input" value="${(s.customFields || {})[cf.key] || ''}" placeholder="${cf.label}" onblur="editCustomFieldInline('${s.id}', '${cf.key}', this.value)" onkeydown="if(event.key==='Enter')this.blur()"></td>`).join('')}
-                <td>
-                    <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
-                </td>
-            </tr>`;
-        }).join('') || `<tr><td colspan="${10 + customSensorFields.length}" class="empty-state">No sensors found.</td></tr>`;
-
-        // Attach change listener for multi-select status fields
         document.querySelectorAll('.inline-edit-status').forEach(sel => {
             sel.addEventListener('change', function() { inlineSaveSensor(this); });
         });
-    } else {
-        document.getElementById('sensors-tbody').innerHTML = filtered.map(s => `
-            <tr>
-                <td><input type="checkbox" class="sensor-checkbox" data-sensor-id="${s.id}" onchange="toggleSensorCheckbox('${s.id}', this.checked)" ${selectedSensors.has(s.id) ? 'checked' : ''}></td>
-                <td><span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br><small style="color:#888">${s.type}</small></td>
-                <td>${s.soaTagId || '—'}</td>
-                <td>${renderStatusBadges(s, true)}</td>
-                <td><span class="clickable" onclick="showCommunity('${s.community}')">${getCommunityName(s.community)}</span></td>
-                <td>${s.location || '—'}</td>
-                <td>${s.dateInstalled || '—'}</td>
-                <td>${s.datePurchased || '—'}</td>
-                <td>${s.collocationDates || '—'}</td>
-                ${customSensorFields.map(cf => `<td>${(s.customFields || {})[cf.key] || '—'}</td>`).join('')}
-                <td>
-                    <button class="btn btn-sm" onclick="openEditSensorModal('${s.id}')">Edit</button>
-                    <button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button>
-                </td>
-            </tr>
-        `).join('') || `<tr><td colspan="${10 + customSensorFields.length}" class="empty-state">No sensors found.</td></tr>`;
     }
 
     renderSensorTableHeader();
