@@ -4205,7 +4205,8 @@ function openNewTicketModal(preselectedSensorId) {
     const select = document.getElementById('ticket-sensor-input');
     select.innerHTML = '<option value="">— Select Sensor —</option>' + sensors.sort((a, b) => a.id.localeCompare(b.id)).map(s => `<option value="${s.id}">${s.id}</option>`).join('');
     if (preselectedSensorId) select.value = preselectedSensorId;
-    document.getElementById('ticket-type-input').value = 'issue';
+    document.getElementById('ticket-type-issue').checked = true;
+    document.getElementById('ticket-type-calibration').checked = false;
     document.getElementById('ticket-description-input').value = '';
     document.getElementById('ticket-rma-input').value = '';
     openModal('modal-new-service-ticket');
@@ -4283,7 +4284,7 @@ function confirmCloseTicket() {
     if (s) {
         // Remove 'Quant Ticket in Progress' if no other active tickets
         const otherActive = serviceTickets.filter(t => t.sensorId === ticket.sensorId && t.status !== 'Closed' && t.id !== ticketId);
-        let finalStatuses = newStatuses.length > 0 ? newStatuses : getStatusArray(s).filter(st => st !== 'Quant Ticket in Progress');
+        let finalStatuses = newStatuses.length > 0 ? newStatuses : getStatusArray(s);
         if (otherActive.length === 0) finalStatuses = finalStatuses.filter(st => st !== 'Quant Ticket in Progress');
         s.status = finalStatuses.length > 0 ? finalStatuses : ['Online'];
         persistSensor(s); buildSensorSidebar();
