@@ -4277,7 +4277,7 @@ function openCloseTicketModal(ticketId) {
     document.getElementById('close-ticket-sensor-label').textContent = ticket.sensorId;
     document.getElementById('close-ticket-id').value = ticketId;
     document.getElementById('close-ticket-work').value = ticket.workCompleted || '';
-    renderStatusToggleList('close-ticket-status', ['Online', 'Ready for Deployment']);
+    renderStatusToggleList('close-ticket-status', ['Offline']);
     closeModal('modal-service-ticket');
     openModal('modal-close-ticket');
 }

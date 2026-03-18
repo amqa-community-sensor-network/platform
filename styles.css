@@ -1120,9 +1120,6 @@ tr:last-child td {
 .badge-transit { background: rgba(148, 163, 184, 0.12); color: #64748b; }
 .badge-transit::before { background: #94a3b8; }
 
-.badge-service-quant { background: rgba(167, 139, 250, 0.1); color: #6d28d9; }
-.badge-service-quant::before { background: #a78bfa; }
-
 .badge-collocation { background: rgba(59, 130, 246, 0.1); color: #1d4ed8; }
 .badge-collocation::before { background: #3b82f6; }
 
@@ -2753,6 +2750,26 @@ th:hover .field-reorder-btns {
 }
 
 /* ===== SERVICE TICKETS ===== */
+/* Sidebar sub-item */
+.sidebar-sub-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px 7px 36px;
+    color: var(--slate-500);
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    border-radius: var(--radius-sm);
+    margin: 2px 8px;
+}
+
+.sidebar-sub-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--slate-300);
+}
+
 .badge-service-quant { background: rgba(167, 139, 250, 0.12); color: #6d28d9; }
 .badge-service-quant::before { background: #8b5cf6; box-shadow: 0 0 6px rgba(139, 92, 246, 0.4); }
 

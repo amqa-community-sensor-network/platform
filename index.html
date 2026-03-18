@@ -89,10 +89,8 @@
                         <span class="sensor-toggle-arrow community-toggle-arrow" title="Filter by tag">&#9660;</span>
                     </a>
                     <ul class="community-list" id="sensor-tag-list"></ul>
-                </li>
-                <li>
-                    <a href="#" class="menu-item" data-view="service">
-                        <span class="icon">&#9888;</span> Service
+                    <a href="#" class="sidebar-sub-item" data-view="service" onclick="event.preventDefault(); showView('service')">
+                        &#9888; Quant Service Tickets
                         <span class="service-badge-count" id="sidebar-service-count" style="display:none"></span>
                     </a>
                 </li>
@@ -189,7 +187,7 @@
             <!-- Service Tickets View -->
             <div id="view-service" class="view">
                 <div class="view-header">
-                    <h1>Service Tickets</h1>
+                    <h1>Quant Service Tickets</h1>
                     <button class="btn btn-primary" onclick="openNewTicketModal()">+ New Ticket</button>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
