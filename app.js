@@ -4312,6 +4312,9 @@ function openTicketDetail(ticketId) {
             <div class="ticket-field"><label>Closed</label><p>${ticket.closedAt ? new Date(ticket.closedAt).toLocaleDateString() : '—'}</p></div>
             <div class="ticket-field full-width"><label>QuantAQ Notes</label>${isOpen ? `<textarea class="ticket-edit-input" rows="3" placeholder="Notes from QuantAQ..." onblur="saveTicketField('${ticket.id}','quantNotes',this.value)">${escapeHtml(ticket.quantNotes)}</textarea>` : `<p>${escapeHtml(ticket.quantNotes) || '—'}</p>`}</div>
             <div class="ticket-field full-width"><label>Work Completed</label>${isOpen ? `<textarea class="ticket-edit-input" rows="3" placeholder="Describe work done..." onblur="saveTicketField('${ticket.id}','workCompleted',this.value)">${escapeHtml(ticket.workCompleted)}</textarea>` : `<p>${escapeHtml(ticket.workCompleted) || '—'}</p>`}</div>
+        </div>
+        <div style="padding:16px 28px;border-top:1px solid var(--slate-100);text-align:right">
+            <button class="btn btn-sm btn-danger" onclick="deleteServiceTicket('${ticket.id}')" style="font-size:11px;opacity:0.7">Delete Ticket</button>
         </div>`;
     openModal('modal-service-ticket');
 }
@@ -4361,6 +4364,46 @@ function revertTicketStatus(ticketId) {
     openTicketDetail(ticketId);
     updateSidebarServiceCount();
     if (document.getElementById('view-service')?.classList.contains('active')) renderServiceView();
+}
+
+async function deleteServiceTicket(ticketId) {
+    const ticket = serviceTickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    const confirmed = confirm(
+        `Delete this service ticket permanently?\n\n` +
+        `Sensor: ${ticket.sensorId}\n` +
+        `Status: ${ticket.status}\n` +
+        `Type: ${formatTicketType(ticket.ticketType)}\n\n` +
+        `This will delete all ticket data and history. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    // Remove from in-memory array
+    const idx = serviceTickets.indexOf(ticket);
+    if (idx >= 0) serviceTickets.splice(idx, 1);
+
+    // Remove from database
+    try {
+        await supa.from('service_tickets').delete().eq('id', ticketId);
+    } catch (err) {
+        console.error('Delete ticket error:', err);
+    }
+
+    // Clean up sensor service statuses
+    const s = sensors.find(x => x.id === ticket.sensorId);
+    if (s) {
+        const serviceStatuses = ['Quant Ticket in Progress', 'In Transit', 'Service at Quant'];
+        const cleaned = getStatusArray(s).filter(st => !serviceStatuses.includes(st));
+        s.status = cleaned.length > 0 ? cleaned : ['Online'];
+        persistSensor(s);
+    }
+    buildSensorSidebar();
+
+    closeModal('modal-service-ticket');
+    updateSidebarServiceCount();
+    if (document.getElementById('view-service')?.classList.contains('active')) renderServiceView();
+    if (currentSensor === ticket.sensorId) showSensorView(ticket.sensorId);
 }
 
 function openNewTicketModal(preselectedSensorId) {

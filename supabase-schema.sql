@@ -334,6 +334,8 @@ CREATE POLICY "Authenticated users can insert service_tickets"
     ON service_tickets FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Authenticated users can update service_tickets"
     ON service_tickets FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "Authenticated users can delete service_tickets"
+    ON service_tickets FOR DELETE TO authenticated USING (true);
 
 -- ===== STORAGE BUCKET =====
 INSERT INTO storage.buckets (id, name, public) VALUES ('community-files', 'community-files', false);
