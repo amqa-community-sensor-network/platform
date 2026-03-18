@@ -126,7 +126,6 @@ function createNote(type, text, tags, additionalInfo) {
         text,
         additionalInfo: additionalInfo || '',
         createdBy: getCurrentUserName(), createdById: currentUserId,
-        createdById: currentUserId,
         createdAt: new Date().toISOString(),
         taggedSensors: tags?.sensors || [],
         taggedCommunities: tags?.communities || [],
@@ -135,11 +134,6 @@ function createNote(type, text, tags, additionalInfo) {
     notes.push(note);
     persistNote(note);
     return note;
-}
-
-function createNoteIfNotSetup(type, text, tags, additionalInfo) {
-    if (!setupMode) return createNote(type, text, tags, additionalInfo);
-    return null;
 }
 
 function hideAllAuthForms() {
@@ -1009,6 +1003,18 @@ function inlineSaveContact(el) {
     }
     persistContact(c);
 
+    // Auto-log active status changes (not in setup mode)
+    if (!setupMode && field === 'active') {
+        const action = c.active ? 'reactivated' : 'marked as inactive';
+        const note = {
+            id: generateId('n'), date: nowDatetime(), type: 'Info Edit',
+            text: `${c.name} ${action}.`,
+            createdBy: getCurrentUserName(), createdById: currentUserId,
+            taggedSensors: [], taggedCommunities: c.community ? [c.community] : [], taggedContacts: [contactId],
+        };
+        notes.push(note); persistNote(note);
+    }
+
     // Auto-log phone/email changes (not in setup mode)
     if (!setupMode && (field === 'email' || field === 'phone') && oldVal !== newVal) {
         const label = field === 'email' ? 'Email' : 'Phone';
@@ -1634,7 +1640,7 @@ function showCommunityView(communityId) {
     renderTimeline('community-history-timeline', commNotes);
 
     // Comms
-    const commComms = comms.filter(c => c.community === communityId || (c.taggedCommunities && c.taggedCommunities.includes(communityId)));
+    const commComms = comms.filter(c => allCommunityIds.includes(c.community) || (c.taggedCommunities && c.taggedCommunities.some(id => allCommunityIds.includes(id))));
     renderTimeline('community-comms-timeline', commComms.map(c => ({
         ...c,
         type: c.commType || c.type,
@@ -3496,7 +3502,7 @@ function executeBulkAction() {
     sensorIds.forEach(id => {
         const s = sensors.find(x => x.id === id);
         if (!s) return;
-        if (doMove && s.community) sourceCommunities.add(s.community);
+        if (s.community) sourceCommunities.add(s.community);
         if (doMove) {
             s.community = toCommunityId;
             s.dateInstalled = now.split('T')[0];
@@ -3539,6 +3545,7 @@ function executeBulkAction() {
 let viewHistory = [];
 
 function pushViewHistory() {
+    if (isNavigatingBack) return;
     const active = document.querySelector('.view.active');
     if (active) viewHistory.push(active.id);
     if (viewHistory.length > 20) viewHistory.shift();
@@ -3550,10 +3557,13 @@ function updateBackButton() {
     btn.style.display = viewHistory.length > 1 ? '' : 'none';
 }
 
+let isNavigatingBack = false;
+
 function goBack() {
     if (viewHistory.length <= 1) return;
-    viewHistory.pop();
+    viewHistory.pop(); // remove current view
     const prevViewId = viewHistory[viewHistory.length - 1];
+    isNavigatingBack = true; // prevent pushViewHistory from adding during navigation
     if (prevViewId === 'view-dashboard') showView('dashboard');
     else if (prevViewId === 'view-all-sensors') showView('all-sensors');
     else if (prevViewId === 'view-communities') showView('communities');
@@ -3562,7 +3572,7 @@ function goBack() {
     else if (prevViewId === 'view-community' && currentCommunity) showCommunityView(currentCommunity);
     else if (prevViewId === 'view-sensor-detail' && currentSensor) showSensorView(currentSensor);
     else if (prevViewId === 'view-contact-detail' && currentContact) showContactView(currentContact);
-    viewHistory.pop();
+    isNavigatingBack = false;
     updateBackButton();
 }
 
