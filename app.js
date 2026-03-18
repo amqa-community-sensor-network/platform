@@ -1095,7 +1095,7 @@ function renderSensors() {
         if (statusFilter && !getStatusArray(s).includes(statusFilter)) return false;
         if (sensorTagFilter) {
             if (sensorTagFilter === 'Issue Sensors') {
-                if (!getStatusArray(s).some(st => SENSOR_ISSUE_STATUSES.includes(st))) return false;
+                if (!isIssueSensor(s)) return false;
             } else if (sensorTagFilter === 'Audit & Permanent Pods') {
                 if (s.type !== 'Audit Pod' && s.type !== 'Permanent Pod') return false;
             } else {
@@ -3460,8 +3460,14 @@ async function disableMfa(factorId) {
 // ===== SENSOR TAGS & SIDEBAR =====
 const SENSOR_ISSUE_STATUSES = ['PM Sensor Issue', 'Gaseous Sensor Issue', 'SD Card Issue', 'Needs Repair', 'Power Failure', 'Lost Connection'];
 
+function isIssueSensor(s) {
+    if (getStatusArray(s).some(st => SENSOR_ISSUE_STATUSES.includes(st))) return true;
+    if (serviceTickets.some(t => t.sensorId === s.id && t.status !== 'Closed')) return true;
+    return false;
+}
+
 function getIssueSensorCount() {
-    return sensors.filter(s => getStatusArray(s).some(st => SENSOR_ISSUE_STATUSES.includes(st))).length;
+    return sensors.filter(isIssueSensor).length;
 }
 
 function getSensorTags() {
