@@ -895,7 +895,7 @@ function getCommunityName(id) {
 
 function renderSensorTableHeader() {
     const cfHeaders = customSensorFields.map(cf =>
-        `<th>${cf.label} <span class="delete-field-btn" onclick="event.stopPropagation(); deleteCustomField('${cf.key}')" title="Delete field">&times;</span></th>`
+        `<th>${cf.label}${setupMode ? ` <span class="delete-field-btn" onclick="event.stopPropagation(); deleteCustomField('${cf.key}')" title="Delete field">&times;</span>` : ''}</th>`
     ).join('');
     document.getElementById('sensors-table-header').innerHTML = `
         <th style="width:30px"><input type="checkbox" id="select-all-sensors" onchange="toggleAllSensorCheckboxes(this.checked)" aria-label="Select all sensors"></th>
@@ -908,7 +908,7 @@ function renderSensorTableHeader() {
         <th class="sortable-th" onclick="sortSensorsBy('datePurchased')">Purchase Date</th>
         <th>Collocation Dates</th>
         ${cfHeaders}
-        <th>Actions <button class="btn btn-sm" onclick="event.stopPropagation(); openAddFieldModal()" style="margin-left:4px;padding:2px 6px;font-size:10px">+ Field</button></th>
+        <th>Actions${setupMode ? ' <button class="btn btn-sm" onclick="event.stopPropagation(); openAddFieldModal()" style="margin-left:4px;padding:2px 6px;font-size:10px">+ Field</button>' : ''}</th>
     `;
 }
 
@@ -1462,7 +1462,7 @@ function showSensorView(sensorId) {
             <div class="info-item"><label>Purchase Date</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'datePurchased')">${s.datePurchased || '—'}</p></div>
             <div class="info-item"><label>Collocation Dates</label><p class="editable-field" onclick="inlineEditSensor('${s.id}', 'collocationDates')">${s.collocationDates || '—'}</p></div>
             ${customSensorFields.map(cf => `<div class="info-item"><label>${cf.label}</label><p class="editable-field" onclick="editCustomField('${s.id}', '${cf.key}')">${(s.customFields || {})[cf.key] || '—'}</p></div>`).join('')}
-            <div class="info-item"><button class="btn btn-sm" onclick="openAddFieldModal()" style="margin-top:18px">+ Add Field</button></div>
+            ${setupMode ? '<div class="info-item"><button class="btn btn-sm" onclick="openAddFieldModal()" style="margin-top:18px">+ Add Field</button></div>' : ''}
         `;
     }
 
@@ -3599,6 +3599,7 @@ function openBulkActionModal() {
     populateGroupedCommunitySelect('bulk-move-community');
     renderStatusToggleList('bulk-status-list', []);
     document.getElementById('bulk-action-notes').value = '';
+    document.getElementById('bulk-action-date').value = nowDatetime();
     document.getElementById('bulk-do-move').checked = true;
     document.getElementById('bulk-do-status').checked = false;
     toggleBulkFields();
@@ -3618,9 +3619,10 @@ function executeBulkAction() {
     if (!doMove && !doStatus) { alert('Select at least one action.'); return; }
 
     const userNotes = document.getElementById('bulk-action-notes').value.trim();
+    const eventDate = document.getElementById('bulk-action-date').value || nowDatetime();
     const sensorIds = Array.from(selectedSensors);
     const sensorList = sensorIds.join(', ');
-    const now = nowDatetime();
+    const now = eventDate;
 
     let toCommunityId = null;
     let toName = '';
@@ -3849,6 +3851,8 @@ function addNewCommunityCustomTag() {
 // ===== CUSTOM SENSOR FIELDS =====
 let customSensorFields = loadData('customSensorFields', []);
 
+let wizardState = null;
+
 function openAddFieldModal() {
     const name = prompt('Enter the new field name (e.g. "Serial Number", "Firmware Version"):');
     if (!name || !name.trim()) return;
@@ -3861,38 +3865,70 @@ function openAddFieldModal() {
 
     customSensorFields.push({ key, label: name.trim() });
     saveData('customSensorFields', customSensorFields);
+    renderSensorTableHeader();
+    renderSensors();
 
-    // Ask user if they want to fill in values now
-    if (confirm(`Field "${name.trim()}" added. Would you like to go through each sensor and fill in this field now?`)) {
-        fillCustomFieldWizard(key, name.trim(), 0);
-    } else {
-        if (currentSensor) showSensorView(currentSensor);
-    }
+    wizardState = { fieldKey: key, fieldLabel: name.trim(), index: 0 };
+    showWizardStep();
+    openModal('modal-field-wizard');
 }
 
-function fillCustomFieldWizard(fieldKey, fieldLabel, index) {
-    if (index >= sensors.length) {
-        alert(`Done! "${fieldLabel}" has been filled in for all sensors.`);
-        if (currentSensor) showSensorView(currentSensor);
+function showWizardStep() {
+    if (!wizardState || wizardState.index >= sensors.length) {
+        document.getElementById('wizard-content').innerHTML = '<p style="text-align:center;color:var(--slate-500);padding:20px">All sensors complete.</p>';
+        document.getElementById('wizard-next-btn').style.display = 'none';
         return;
     }
+    const s = sensors[wizardState.index];
+    const currentVal = (s.customFields || {})[wizardState.fieldKey] || '';
+    document.getElementById('wizard-progress').textContent = `${wizardState.index + 1} of ${sensors.length}`;
+    document.getElementById('wizard-content').innerHTML = `
+        <div style="margin-bottom:8px"><strong style="font-family:var(--font-mono)">${s.id}</strong> <span style="color:var(--slate-400)">${getCommunityName(s.community)}</span></div>
+        <input type="text" id="wizard-field-input" class="inline-edit-input" value="${currentVal}" placeholder="Enter ${wizardState.fieldLabel}" style="width:100%" onkeydown="if(event.key==='Enter'){event.preventDefault();wizardNext();}">
+    `;
+    document.getElementById('wizard-next-btn').style.display = '';
+    setTimeout(() => document.getElementById('wizard-field-input')?.focus(), 50);
+}
 
-    const s = sensors[index];
-    const val = prompt(`${s.id} — Enter ${fieldLabel} (${index + 1} of ${sensors.length}, leave blank to skip):`);
-
-    if (val === null) {
-        // User hit Cancel — stop wizard
-        if (currentSensor) showSensorView(currentSensor);
-        return;
-    }
-
-    if (val.trim()) {
+function wizardNext() {
+    if (!wizardState) return;
+    const input = document.getElementById('wizard-field-input');
+    if (input && input.value.trim()) {
+        const s = sensors[wizardState.index];
         if (!s.customFields) s.customFields = {};
-        s.customFields[fieldKey] = val.trim();
+        s.customFields[wizardState.fieldKey] = input.value.trim();
+    }
+    wizardState.index++;
+    showWizardStep();
+}
+
+function wizardSaveAndClose() {
+    const input = document.getElementById('wizard-field-input');
+    if (input && input.value.trim() && wizardState && wizardState.index < sensors.length) {
+        const s = sensors[wizardState.index];
+        if (!s.customFields) s.customFields = {};
+        s.customFields[wizardState.fieldKey] = input.value.trim();
+    }
+    saveCustomFieldData();
+    wizardState = null;
+    closeModal('modal-field-wizard');
+    renderSensors();
+    if (currentSensor) showSensorView(currentSensor);
+}
+
+function wizardDiscard() {
+    if (!confirm('Discard this new field and all values entered so far?')) return;
+    if (wizardState) {
+        sensors.forEach(s => { if (s.customFields) delete s.customFields[wizardState.fieldKey]; });
+        customSensorFields = customSensorFields.filter(f => f.key !== wizardState.fieldKey);
+        saveData('customSensorFields', customSensorFields);
         saveCustomFieldData();
     }
-
-    fillCustomFieldWizard(fieldKey, fieldLabel, index + 1);
+    wizardState = null;
+    closeModal('modal-field-wizard');
+    renderSensorTableHeader();
+    renderSensors();
+    if (currentSensor) showSensorView(currentSensor);
 }
 
 function editCustomField(sensorId, fieldKey) {

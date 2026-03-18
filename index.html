@@ -776,6 +776,26 @@
         </div>
     </div>
 
+    <!-- Field Wizard Modal -->
+    <div id="modal-field-wizard" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Fill In New Field</h2>
+                <span id="wizard-progress" style="font-size:12px;color:var(--slate-400)"></span>
+            </div>
+            <div class="form-group" style="margin-top:16px">
+                <div id="wizard-content"></div>
+            </div>
+            <div class="modal-footer" style="justify-content:space-between">
+                <button type="button" class="btn btn-danger" onclick="wizardDiscard()">Discard Field</button>
+                <div style="display:flex;gap:8px">
+                    <button type="button" class="btn" id="wizard-next-btn" onclick="wizardNext()">Next</button>
+                    <button type="button" class="btn btn-primary" onclick="wizardSaveAndClose()">Save &amp; Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Export Modal -->
     <div id="modal-export" class="modal" role="dialog" aria-modal="true">
         <div class="modal-content modal-sm">
@@ -809,6 +829,10 @@
             <div class="form-group">
                 <label><input type="checkbox" id="bulk-do-status" onchange="toggleBulkFields()"> Change Status</label>
                 <div id="bulk-status-list" class="status-toggle-list" style="margin-top:6px;display:none"></div>
+            </div>
+            <div class="form-group">
+                <label>Date of Event</label>
+                <input type="datetime-local" id="bulk-action-date">
             </div>
             <div class="form-group" id="bulk-notes-field">
                 <label>Notes (optional — logged as a single group event)</label>
