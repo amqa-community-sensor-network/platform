@@ -3365,6 +3365,21 @@ function closeModal(id) {
     document.getElementById(id).classList.remove('open');
 }
 
+// Escape key closes the topmost open modal
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        // Close analysis modal first if open (it sits on top)
+        const analysisModal = document.getElementById('modal-audit-analysis');
+        if (analysisModal?.classList.contains('open')) { closeAnalysisModal(); return; }
+        // Close any popover first
+        const popover = document.querySelector('.axis-popover');
+        if (popover) { popover.remove(); return; }
+        // Close the topmost regular modal
+        const modals = document.querySelectorAll('.modal.open');
+        if (modals.length > 0) { closeModal(modals[modals.length - 1].id); }
+    }
+});
+
 // Modals only close via X, Cancel, or Save buttons — not by clicking outside
 
 // ===== HELPERS =====
@@ -4289,7 +4304,7 @@ function renderTicketCard(ticket) {
             ${ticket.rmaNumber ? `<span>RMA: ${escapeHtml(ticket.rmaNumber)}</span>` : ''}
             ${ticket.fedexTrackingTo ? `<span>To Quant: ${escapeHtml(ticket.fedexTrackingTo)}</span>` : ''}
             ${ticket.fedexTrackingFrom ? `<span>From Quant: ${escapeHtml(ticket.fedexTrackingFrom)}</span>` : ''}
-            <span>${new Date(ticket.createdAt).toLocaleDateString()}</span>
+            <span>${formatDate(ticket.createdAt)}</span>
         </div>
         <div class="ticket-steps">${renderTicketProgress(ticket)}</div>
     </div>`;
@@ -4315,12 +4330,12 @@ function openTicketDetail(ticketId) {
             <div class="ticket-field"><label>Sensor</label><p><a href="#" onclick="closeModal('modal-service-ticket'); showSensorDetail('${ticket.sensorId}'); return false;" style="color:var(--navy-500)">${ticket.sensorId}</a></p></div>
             <div class="ticket-field"><label>Actions Needed</label><p>${formatTicketType(ticket.ticketType)}</p></div>
             <div class="ticket-field"><label>Status</label><p><span class="ticket-status-badge ${TICKET_STATUS_CSS[ticket.status] || ''}">${ticket.status}</span></p></div>
-            <div class="ticket-field"><label>Opened</label><p>${escapeHtml(ticket.createdBy)} on ${new Date(ticket.createdAt).toLocaleDateString()}</p></div>
+            <div class="ticket-field"><label>Opened</label><p>${escapeHtml(ticket.createdBy)} on ${formatDate(ticket.createdAt)}</p></div>
             <div class="ticket-field full-width"><label>Issue Description</label><p>${escapeHtml(ticket.issueDescription) || '—'}</p></div>
             <div class="ticket-field"><label>RMA Number</label>${isOpen ? `<input class="ticket-edit-input" value="${escapeHtml(ticket.rmaNumber)}" placeholder="e.g. RMA-2026-0042" onblur="saveTicketField('${ticket.id}','rmaNumber',this.value)">` : `<p>${escapeHtml(ticket.rmaNumber) || '—'}</p>`}</div>
             <div class="ticket-field"><label>FedEx Tracking (to QuantAQ)</label>${isOpen ? `<input class="ticket-edit-input" value="${escapeHtml(ticket.fedexTrackingTo)}" placeholder="Tracking number" onblur="saveTicketField('${ticket.id}','fedexTrackingTo',this.value)">${ticket.fedexTrackingTo ? ` <a href="https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(ticket.fedexTrackingTo)}" target="_blank" class="tracking-link">Track &#8599;</a>` : ''}` : `<p>${ticket.fedexTrackingTo ? `<a href="https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(ticket.fedexTrackingTo)}" target="_blank" class="tracking-link">${escapeHtml(ticket.fedexTrackingTo)} &#8599;</a>` : '—'}</p>`}</div>
             <div class="ticket-field"><label>FedEx Tracking (from QuantAQ)</label>${isOpen ? `<input class="ticket-edit-input" value="${escapeHtml(ticket.fedexTrackingFrom)}" placeholder="Tracking number" onblur="saveTicketField('${ticket.id}','fedexTrackingFrom',this.value)">${ticket.fedexTrackingFrom ? ` <a href="https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(ticket.fedexTrackingFrom)}" target="_blank" class="tracking-link">Track &#8599;</a>` : ''}` : `<p>${ticket.fedexTrackingFrom ? `<a href="https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(ticket.fedexTrackingFrom)}" target="_blank" class="tracking-link">${escapeHtml(ticket.fedexTrackingFrom)} &#8599;</a>` : '—'}</p>`}</div>
-            <div class="ticket-field"><label>Closed</label><p>${ticket.closedAt ? new Date(ticket.closedAt).toLocaleDateString() : '—'}</p></div>
+            <div class="ticket-field"><label>Closed</label><p>${ticket.closedAt ? formatDate(ticket.closedAt) : '—'}</p></div>
             <div class="ticket-field full-width"><label>QuantAQ Notes</label>${isOpen ? `<textarea class="ticket-edit-input" rows="3" placeholder="Notes from QuantAQ..." onblur="saveTicketField('${ticket.id}','quantNotes',this.value)">${escapeHtml(ticket.quantNotes)}</textarea>` : `<p>${escapeHtml(ticket.quantNotes) || '—'}</p>`}</div>
             <div class="ticket-field full-width"><label>Work Completed</label>${isOpen ? `<textarea class="ticket-edit-input" rows="3" placeholder="Describe work done..." onblur="saveTicketField('${ticket.id}','workCompleted',this.value)">${escapeHtml(ticket.workCompleted)}</textarea>` : `<p>${escapeHtml(ticket.workCompleted) || '—'}</p>`}</div>
         </div>
@@ -4347,7 +4362,7 @@ function advanceTicketStatus(ticketId) {
     ticket.status = newStatus;
     persistServiceTicketUpdate(ticketId, { status: newStatus });
 
-    const sensorStatusMap = { 'Shipped to Quant': ['In Transit'], 'At Quant': ['Service at Quant'] };
+    const sensorStatusMap = { 'Shipped to Quant': ['In Transit'], 'At Quant': ['Service at Quant'], 'Shipped from Quant': ['In Transit'] };
     if (sensorStatusMap[newStatus]) {
         const s = sensors.find(x => x.id === ticket.sensorId);
         if (s) {
@@ -4369,9 +4384,27 @@ function revertTicketStatus(ticketId) {
     const idx = TICKET_STATUSES.indexOf(ticket.status);
     if (idx <= 0) return;
     const oldStatus = ticket.status;
-    ticket.status = TICKET_STATUSES[idx - 1];
-    persistServiceTicketUpdate(ticketId, { status: ticket.status });
-    createNote('Service', `Service ticket reverted: "${oldStatus}" \u2192 "${ticket.status}".`, { sensors: [ticket.sensorId] });
+    const newStatus = TICKET_STATUSES[idx - 1];
+    ticket.status = newStatus;
+    persistServiceTicketUpdate(ticketId, { status: newStatus });
+
+    // Restore sensor status to match the reverted-to step
+    const sensorStatusMap = { 'Shipped to Quant': ['In Transit'], 'At Quant': ['Service at Quant'], 'Shipped from Quant': ['In Transit'] };
+    const s = sensors.find(x => x.id === ticket.sensorId);
+    if (s) {
+        // Strip all service-related statuses, then apply what the new status implies
+        const serviceStatuses = ['In Transit', 'Service at Quant'];
+        const cleaned = getStatusArray(s).filter(st => !serviceStatuses.includes(st));
+        if (sensorStatusMap[newStatus]) {
+            s.status = [...cleaned, ...sensorStatusMap[newStatus]];
+        } else {
+            // Earlier statuses (Ticket Opened, RMA Assigned) just have "Quant Ticket in Progress"
+            s.status = cleaned.length > 0 ? cleaned : ['Quant Ticket in Progress'];
+        }
+        persistSensor(s); buildSensorSidebar();
+    }
+
+    createNote('Service', `Service ticket reverted: "${oldStatus}" \u2192 "${newStatus}".`, { sensors: [ticket.sensorId] });
     openTicketDetail(ticketId);
     updateSidebarServiceCount();
     if (document.getElementById('view-service')?.classList.contains('active')) renderServiceView();
@@ -4724,6 +4757,11 @@ function advanceAuditStatus(auditId) {
     if (idx >= AUDIT_STATUSES.length - 1) return;
     const oldStatus = audit.status;
     const newStatus = AUDIT_STATUSES[idx + 1];
+
+    // Warn if skipping analysis
+    if (newStatus === 'Audit Complete' && Object.keys(audit.analysisResults || {}).length === 0) {
+        if (!confirm('No analysis data has been uploaded for this audit. Are you sure you want to mark it as complete without DQO analysis?')) return;
+    }
     audit.status = newStatus;
     const updates = { status: newStatus };
 
@@ -5283,8 +5321,24 @@ function rebuildCacheFromSaved(audit) {
         trimmedRows: allRows.slice(trimIndex),
     };
 
-    // Rebuild regression results with pairs from saved analysisResults
-    parsed.regressionResults = audit.analysisResults || {};
+    // Rebuild regression results — reconstruct pairs from row data if missing
+    const savedResults = audit.analysisResults || {};
+    AUDIT_PARAMETERS.forEach(p => {
+        const r = savedResults[p.key];
+        if (r && !r.pairs) {
+            // Reconstruct pairs from trimmed row data
+            const pairs = [];
+            for (const row of parsed.trimmedRows) {
+                const a = row.values[p.key]?.a;
+                const b = row.values[p.key]?.b;
+                if (!isNaN(a) && !isNaN(b) && isFinite(a) && isFinite(b)) {
+                    pairs.push({ x: a, y: b });
+                }
+            }
+            r.pairs = pairs;
+        }
+    });
+    parsed.regressionResults = savedResults;
 
     return parsed;
 }
@@ -5321,7 +5375,7 @@ function renderAnalysisResults(auditId, parsed) {
     body.innerHTML = `
         <div style="margin-top:16px">
             <span class="analysis-trim-note">First 24 hours excluded from DQO analysis (${trimCount} of ${totalCount} rows trimmed) \u2014 regression and DQO calculated on ${analysisCount} rows</span>
-            ${audit.analysisUploadDate ? `<span style="float:right;font-size:11px;color:var(--slate-400)">Uploaded ${new Date(audit.analysisUploadDate).toLocaleDateString()} by ${escapeHtml(audit.analysisUploadedBy || '')}</span>` : ''}
+            ${audit.analysisUploadDate ? `<span style="float:right;font-size:11px;color:var(--slate-400)">Uploaded ${formatDate(audit.analysisUploadDate)} by ${escapeHtml(audit.analysisUploadedBy || '')}</span>` : ''}
         </div>
         <div class="analysis-tabs">
             <button class="analysis-tab active" onclick="switchAnalysisTab(this, 'analysis')">Analysis</button>
@@ -5402,7 +5456,7 @@ function renderSavedAnalysisView(auditId) {
     const body = document.getElementById('audit-analysis-body');
     body.innerHTML = `
         <div style="margin-top:16px">
-            ${audit.analysisUploadDate ? `<span style="font-size:11px;color:var(--slate-400)">Uploaded ${new Date(audit.analysisUploadDate).toLocaleDateString()} by ${escapeHtml(audit.analysisUploadedBy || '')}</span>` : ''}
+            ${audit.analysisUploadDate ? `<span style="font-size:11px;color:var(--slate-400)">Uploaded ${formatDate(audit.analysisUploadDate)} by ${escapeHtml(audit.analysisUploadedBy || '')}</span>` : ''}
         </div>
         <div style="overflow-x:auto;margin-top:16px">
         <table class="dqo-summary-table">
