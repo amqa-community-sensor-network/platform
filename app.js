@@ -2913,11 +2913,19 @@ function nowDatetime() {
 function formatDate(dateStr) {
     if (!dateStr) return '';
     if (typeof dateStr !== 'string') dateStr = String(dateStr);
-    // Handle both "2026-03-14" and "2026-03-14T10:30" formats
+    // Handle "2026-03-14", "2026-03-14T10:30", and ISO "2026-03-14T10:30:00.000Z"
     const hasTime = dateStr.includes('T') && dateStr.split('T')[1];
+    const isUTC = dateStr.endsWith('Z') || dateStr.includes('+');
     let d;
-    if (hasTime) {
+    if (isUTC) {
+        // Already has timezone — parse as-is
         d = new Date(dateStr);
+    } else if (hasTime) {
+        // Local datetime like "2026-03-19T14:30" — parse as local, not UTC
+        const [datePart, timePart] = dateStr.split('T');
+        const [y, m, day] = datePart.split('-').map(Number);
+        const [hr, min] = (timePart || '00:00').split(':').map(Number);
+        d = new Date(y, m - 1, day, hr, min);
     } else {
         d = new Date(dateStr + 'T00:00:00');
     }
@@ -5997,12 +6005,14 @@ function renderCommunityOverview(communityId) {
     const commSensors = sensors.filter(s => allCommunityIds.includes(s.community));
     const sensorHtml = commSensors.length > 0
         ? commSensors.slice(0, 4).map(s => `<div class="ov-sensor-card" onclick="showSensorDetail('${s.id}')">
-            <div class="ov-sensor-id">${s.id}</div>
-            <div class="ov-sensor-type">${s.type || 'Unassigned'}</div>
-            <div class="ov-sensor-details">
-                <span>${renderStatusBadges(s, false)}</span>
-                ${s.location ? `<span style="font-size:11px;color:var(--slate-400)">${escapeHtml(s.location)}</span>` : ''}
-                ${s.dateInstalled ? `<span style="font-size:11px;color:var(--slate-400)">Installed ${formatDate(s.dateInstalled)}</span>` : ''}
+            <div class="ov-sensor-left">
+                <div class="ov-sensor-id">${s.id}</div>
+                <div class="ov-sensor-type">${s.type || 'Unassigned'}</div>
+            </div>
+            <div class="ov-sensor-right">
+                <div>${renderStatusBadges(s, false)}</div>
+                ${s.location ? `<div class="ov-sensor-field">${escapeHtml(s.location)}</div>` : ''}
+                ${s.dateInstalled ? `<div class="ov-sensor-field">Installed ${formatDate(s.dateInstalled)}</div>` : ''}
             </div>
         </div>`).join('') + (commSensors.length > 4 ? `<div style="margin-top:4px"><a class="ov-view-all" onclick="activateCommunityTab('community-sensors')">View all ${commSensors.length} sensors &rarr;</a></div>` : '')
         : '<p class="ov-empty">No sensors assigned</p>';

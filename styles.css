@@ -2082,7 +2082,10 @@ tr:last-child td {
 }
 
 .ov-sensor-card {
-    padding: 10px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 10px 12px;
     border: 1px solid var(--slate-100);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -2094,24 +2097,34 @@ tr:last-child td {
     border-color: var(--navy-200);
 }
 
+.ov-sensor-left {
+    min-width: 110px;
+}
+
 .ov-sensor-id {
     font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 600;
     color: var(--slate-700);
+    line-height: 1.2;
 }
 
 .ov-sensor-type {
     font-size: 11px;
     color: var(--slate-400);
-    margin-bottom: 6px;
 }
 
-.ov-sensor-details {
+.ov-sensor-right {
+    flex: 1;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px 12px;
     align-items: center;
+}
+
+.ov-sensor-field {
+    font-size: 12px;
+    color: var(--slate-500);
 }
 
 .ov-timeline-item {
