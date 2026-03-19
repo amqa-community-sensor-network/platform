@@ -1596,9 +1596,6 @@ function showSensorView(sensorId) {
                     ${SENSOR_TYPES.map(t => `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                 </select>
             </div>
-            <div class="info-item"><label>SOA Tag ID</label>
-                <input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()">
-            </div>
             <div class="info-item"><label>Status</label>
                 <select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple onchange="inlineSaveSensor(this)">
                     <option value="" ${currentStatuses.length === 0 ? 'selected' : ''}>— No Status —</option>
@@ -1616,11 +1613,14 @@ function showSensorView(sensorId) {
             <div class="info-item"><label>Install Date</label>
                 <input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="dateInstalled" value="${s.dateInstalled || ''}" onblur="inlineSaveSensor(this)">
             </div>
+            <div class="info-item"><label>Most Recent Collocation</label>
+                <input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Floyd Dryden, Mar 5-25" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
+            <div class="info-item"><label>SOA Tag ID</label>
+                <input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()">
+            </div>
             <div class="info-item"><label>Purchase Date</label>
                 <input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)">
-            </div>
-            <div class="info-item"><label>Most Recent Collocation</label>
-                <input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Mar 5-13" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()">
             </div>
         `;
     } else {
@@ -1777,7 +1777,7 @@ function showCommunityView(communityId) {
     const sensorsSection = document.getElementById('community-sensors-section');
 
     const sensorTableHead = `<thead><tr>
-        <th>Sensor ID</th><th>SOA Tag ID</th><th>Status</th>
+        <th>Sensor ID</th><th>Status</th>
         <th>Location</th><th>Install Date</th><th>Most Recent Collocation</th><th>SOA Tag ID</th><th>Purchase Date</th><th>Actions</th>
     </tr></thead>`;
 
@@ -1792,22 +1792,21 @@ function showCommunityView(communityId) {
                             ${SENSOR_TYPES.map(t => `<option value="${t}" ${s.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
                     </td>
-                    <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
                     <td><select class="inline-edit-select inline-edit-status" data-sensor="${s.id}" data-field="status" multiple onchange="inlineSaveSensor(this)">
                         <option value="" ${currentStatuses.length === 0 ? 'selected' : ''}>— No Status —</option>
                         ${ALL_STATUSES.map(st => `<option value="${st}" ${currentStatuses.includes(st) ? 'selected' : ''}>${st}</option>`).join('')}
                     </select></td>
                     <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="location" value="${s.location || ''}" placeholder="Address or GPS" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
-                    <td>${s.dateInstalled || '—'}</td>
-                    <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)"></td>
+                    <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="dateInstalled" value="${s.dateInstalled || ''}" onblur="inlineSaveSensor(this)"></td>
                     <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="collocationDates" value="${s.collocationDates || ''}" placeholder="e.g. Mar 5-13" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                    <td><input class="inline-edit-input" data-sensor="${s.id}" data-field="soaTagId" value="${s.soaTagId || ''}" placeholder="SOA Tag" onblur="inlineSaveSensor(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+                    <td><input class="inline-edit-input" type="date" data-sensor="${s.id}" data-field="datePurchased" value="${s.datePurchased || ''}" onblur="inlineSaveSensor(this)"></td>
                     <td><button class="btn btn-sm" onclick="openMoveSensorModal('${s.id}')">Move</button></td>
                 </tr>`;
             }).join('');
         }
         return list.map(s => `<tr>
             <td><span class="clickable" onclick="showSensorDetail('${s.id}')">${s.id}</span><br><small style="color:var(--slate-400)">${s.type}</small></td>
-            <td>${s.soaTagId || '—'}</td>
             <td>${renderStatusBadges(s, true)}</td>
             <td>${s.location || '—'}</td>
             <td>${s.dateInstalled || '—'}</td>
@@ -3828,13 +3827,13 @@ function exportSpreadsheet(headers, rows, filename) {
 
 const SENSOR_EXPORT_FIELDS = [
     { key: 'id', label: 'Sensor ID', get: s => s.id },
+    { key: 'type', label: 'Type', get: s => s.type },
     { key: 'status', label: 'Status', get: s => getStatusArray(s).join('; ') },
     { key: 'community', label: 'Community', get: s => getCommunityName(s.community) },
     { key: 'location', label: 'Location', get: s => s.location || '' },
     { key: 'dateInstalled', label: 'Install Date', get: s => s.dateInstalled || '' },
     { key: 'collocationDates', label: 'Most Recent Collocation', get: s => s.collocationDates || '' },
     { key: 'soaTagId', label: 'SOA Tag ID', get: s => s.soaTagId || '' },
-    { key: 'type', label: 'Type', get: s => s.type },
     { key: 'datePurchased', label: 'Purchase Date', get: s => s.datePurchased || '' },
 ];
 
