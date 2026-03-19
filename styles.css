@@ -2073,6 +2073,7 @@ tr:last-child td {
 .analysis-chart-card canvas {
     width: 100% !important;
     height: 260px !important;
+    cursor: crosshair;
 }
 
 /* Raw Data Table */

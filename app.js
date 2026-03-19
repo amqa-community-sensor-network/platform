@@ -5493,6 +5493,7 @@ function renderScatterSection(auditId, parsed, results) {
         ${AUDIT_PARAMETERS.map(p => `<div class="analysis-chart-card">
             <h4>${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}<br><span style="font-weight:400;font-size:11px;color:var(--slate-400)">Hourly data, first 24 hours removed</span></h4>
             <canvas id="scatter-${auditId}-${p.key}"></canvas>
+            <div style="text-align:right;margin-top:4px"><button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:0.6" onclick="editChartAxes('scatter-${auditId}-${p.key}')">Edit axes</button></div>
         </div>`).join('')}
     </div>`;
 
@@ -5558,30 +5559,6 @@ function createScatterChart(canvasId, regression, param, parsed) {
                 x: { title: { display: true, text: `${parsed.sensorA.short} (${param.unit})`, font: { size: 11 } }, grid: { display: false } },
                 y: { title: { display: true, text: `${parsed.sensorB.short} (${param.unit})`, font: { size: 11 } }, grid: { display: false } },
             },
-            onClick: function(evt, elements, chart) {
-                const yAxis = chart.scales.y;
-                const xAxis = chart.scales.x;
-                const rect = chart.canvas.getBoundingClientRect();
-                const clickX = evt.native.clientX - rect.left;
-                const clickY = evt.native.clientY - rect.top;
-                if (clickX < yAxis.right) {
-                    const newMin = prompt('Y-axis minimum:', Math.round(yAxis.min * 10) / 10);
-                    const newMax = prompt('Y-axis maximum:', Math.round(yAxis.max * 10) / 10);
-                    if (newMin !== null && newMax !== null) {
-                        chart.options.scales.y.min = parseFloat(newMin);
-                        chart.options.scales.y.max = parseFloat(newMax);
-                        chart.update();
-                    }
-                } else if (clickY > xAxis.top) {
-                    const newMin = prompt('X-axis minimum:', Math.round(xAxis.min * 10) / 10);
-                    const newMax = prompt('X-axis maximum:', Math.round(xAxis.max * 10) / 10);
-                    if (newMin !== null && newMax !== null) {
-                        chart.options.scales.x.min = parseFloat(newMin);
-                        chart.options.scales.x.max = parseFloat(newMax);
-                        chart.update();
-                    }
-                }
-            },
         },
     });
     analysisChartInstances.push(chart);
@@ -5596,6 +5573,7 @@ function renderTimeSeriesSection(auditId, parsed) {
         ${pmParams.map(p => `<div class="analysis-chart-card">
             <h4>${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}<br><span style="font-weight:400;font-size:11px;color:var(--slate-400)">Hourly data, first 24 hours excluded from analysis</span></h4>
             <canvas id="ts-${auditId}-${p.key}"></canvas>
+            <div style="text-align:right;margin-top:4px"><button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:0.6" onclick="editChartAxes('ts-${auditId}-${p.key}')">Edit Y-axis</button></div>
         </div>`).join('')}
     </div>`;
 
@@ -5663,26 +5641,34 @@ function createTimeSeriesChart(canvasId, parsed, param, audit) {
                 },
             },
             interaction: { mode: 'index', intersect: false },
-            onClick: function(evt, elements, chart) {
-                // Click on axis area to manually edit range
-                const xAxis = chart.scales.x;
-                const yAxis = chart.scales.y;
-                const rect = chart.canvas.getBoundingClientRect();
-                const clickX = evt.native.clientX - rect.left;
-                const clickY = evt.native.clientY - rect.top;
-                if (clickX < yAxis.right) {
-                    const newMin = prompt('Y-axis minimum:', Math.round(yAxis.min * 10) / 10);
-                    const newMax = prompt('Y-axis maximum:', Math.round(yAxis.max * 10) / 10);
-                    if (newMin !== null && newMax !== null) {
-                        chart.options.scales.y.min = parseFloat(newMin);
-                        chart.options.scales.y.max = parseFloat(newMax);
-                        chart.update();
-                    }
-                }
-            },
         },
     });
     analysisChartInstances.push(chart);
+}
+
+function editChartAxes(canvasId) {
+    const chart = analysisChartInstances.find(c => c.canvas?.id === canvasId);
+    if (!chart) return;
+    const hasX = chart.config.type === 'scatter';
+
+    const yMin = prompt('Y-axis minimum:', Math.round((chart.scales.y?.min ?? 0) * 100) / 100);
+    if (yMin === null) return;
+    const yMax = prompt('Y-axis maximum:', Math.round((chart.scales.y?.max ?? 100) * 100) / 100);
+    if (yMax === null) return;
+
+    chart.options.scales.y.min = parseFloat(yMin);
+    chart.options.scales.y.max = parseFloat(yMax);
+
+    if (hasX) {
+        const xMin = prompt('X-axis minimum:', Math.round((chart.scales.x?.min ?? 0) * 100) / 100);
+        if (xMin === null) { chart.update(); return; }
+        const xMax = prompt('X-axis maximum:', Math.round((chart.scales.x?.max ?? 100) * 100) / 100);
+        if (xMax === null) { chart.update(); return; }
+        chart.options.scales.x.min = parseFloat(xMin);
+        chart.options.scales.x.max = parseFloat(xMax);
+    }
+
+    chart.update();
 }
 
 function renderRawDataPanel(parsed) {
