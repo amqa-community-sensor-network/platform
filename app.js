@@ -5492,8 +5492,9 @@ function renderScatterSection(auditId, parsed, results) {
         <div class="analysis-chart-grid">
         ${AUDIT_PARAMETERS.map(p => `<div class="analysis-chart-card">
             <h4>${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}<br><span style="font-weight:400;font-size:11px;color:var(--slate-400)">Hourly data, first 24 hours removed</span></h4>
+            <button class="axis-edit-btn axis-edit-y" onclick="editChartAxis('scatter-${auditId}-${p.key}', 'y')">&#9998; Y</button>
+            <button class="axis-edit-btn axis-edit-x" onclick="editChartAxis('scatter-${auditId}-${p.key}', 'x')">&#9998; X</button>
             <canvas id="scatter-${auditId}-${p.key}"></canvas>
-            <div style="text-align:right;margin-top:4px"><button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:0.6" onclick="editChartAxes('scatter-${auditId}-${p.key}')">Edit axes</button></div>
         </div>`).join('')}
     </div>`;
 
@@ -5572,8 +5573,8 @@ function renderTimeSeriesSection(auditId, parsed) {
         <div class="analysis-chart-grid">
         ${pmParams.map(p => `<div class="analysis-chart-card">
             <h4>${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}<br><span style="font-weight:400;font-size:11px;color:var(--slate-400)">Hourly data, first 24 hours excluded from analysis</span></h4>
+            <button class="axis-edit-btn axis-edit-y" onclick="editChartAxis('ts-${auditId}-${p.key}', 'y')">&#9998; Y</button>
             <canvas id="ts-${auditId}-${p.key}"></canvas>
-            <div style="text-align:right;margin-top:4px"><button class="btn btn-sm" style="font-size:10px;padding:2px 8px;opacity:0.6" onclick="editChartAxes('ts-${auditId}-${p.key}')">Edit Y-axis</button></div>
         </div>`).join('')}
     </div>`;
 
@@ -5646,28 +5647,19 @@ function createTimeSeriesChart(canvasId, parsed, param, audit) {
     analysisChartInstances.push(chart);
 }
 
-function editChartAxes(canvasId) {
+function editChartAxis(canvasId, axis) {
     const chart = analysisChartInstances.find(c => c.canvas?.id === canvasId);
-    if (!chart) return;
-    const hasX = chart.config.type === 'scatter';
+    if (!chart || !chart.scales[axis]) return;
+    const scale = chart.scales[axis];
+    const label = axis === 'y' ? 'Y-axis' : 'X-axis';
 
-    const yMin = prompt('Y-axis minimum:', Math.round((chart.scales.y?.min ?? 0) * 100) / 100);
-    if (yMin === null) return;
-    const yMax = prompt('Y-axis maximum:', Math.round((chart.scales.y?.max ?? 100) * 100) / 100);
-    if (yMax === null) return;
+    const newMin = prompt(`${label} minimum:`, Math.round(scale.min * 100) / 100);
+    if (newMin === null) return;
+    const newMax = prompt(`${label} maximum:`, Math.round(scale.max * 100) / 100);
+    if (newMax === null) return;
 
-    chart.options.scales.y.min = parseFloat(yMin);
-    chart.options.scales.y.max = parseFloat(yMax);
-
-    if (hasX) {
-        const xMin = prompt('X-axis minimum:', Math.round((chart.scales.x?.min ?? 0) * 100) / 100);
-        if (xMin === null) { chart.update(); return; }
-        const xMax = prompt('X-axis maximum:', Math.round((chart.scales.x?.max ?? 100) * 100) / 100);
-        if (xMax === null) { chart.update(); return; }
-        chart.options.scales.x.min = parseFloat(xMin);
-        chart.options.scales.x.max = parseFloat(xMax);
-    }
-
+    chart.options.scales[axis].min = parseFloat(newMin);
+    chart.options.scales[axis].max = parseFloat(newMax);
     chart.update();
 }
 

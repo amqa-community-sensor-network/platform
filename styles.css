@@ -2070,10 +2070,52 @@ tr:last-child td {
     margin: 0 0 12px;
 }
 
+.analysis-chart-card {
+    position: relative;
+}
+
 .analysis-chart-card canvas {
     width: 100% !important;
     height: 260px !important;
-    cursor: crosshair;
+}
+
+.axis-edit-btn {
+    position: absolute;
+    background: var(--navy-800);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 2px 6px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 2;
+    pointer-events: none;
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-weight: 600;
+}
+
+.analysis-chart-card:hover .axis-edit-btn {
+    opacity: 0.7;
+    pointer-events: auto;
+}
+
+.axis-edit-btn:hover {
+    opacity: 1 !important;
+}
+
+.axis-edit-y {
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.axis-edit-x {
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 /* Raw Data Table */
