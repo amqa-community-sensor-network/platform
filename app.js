@@ -5964,13 +5964,22 @@ function renderAuditPhotos(auditId, communityId) {
         f.storagePath && f.storagePath.startsWith(auditId + '/') && f.type && f.type.startsWith('image/')
     );
     if (files.length === 0) return '<p style="font-size:12px;color:var(--slate-400)">No photos yet.</p>';
-    return files.map(f => {
-        const imgSrc = db.getFileUrl(f.storagePath);
-        return `<div class="audit-photo-thumb">
-            <img src="${imgSrc}" alt="${escapeHtml(f.name)}" onclick="openStorageFile('${f.storagePath}')">
-            <button class="audit-photo-delete" onclick="deleteAuditPhoto('${communityId}', '${f.id}', '${f.storagePath}', '${auditId}')" title="Delete">&times;</button>
-        </div>`;
-    }).join('');
+    // Return placeholder grid, then load signed URLs async
+    setTimeout(() => loadAuditPhotoUrls(auditId, communityId, files), 0);
+    return files.map((f, i) => `<div class="audit-photo-thumb">
+        <img id="audit-photo-${auditId}-${i}" src="" alt="${escapeHtml(f.name)}" style="background:var(--slate-100)" onclick="openStorageFile('${f.storagePath}')">
+        <button class="audit-photo-delete" onclick="deleteAuditPhoto('${communityId}', '${f.id}', '${f.storagePath}', '${auditId}')" title="Delete">&times;</button>
+    </div>`).join('');
+}
+
+async function loadAuditPhotoUrls(auditId, communityId, files) {
+    for (let i = 0; i < files.length; i++) {
+        try {
+            const url = await db.getSignedUrl(files[i].storagePath);
+            const img = document.getElementById(`audit-photo-${auditId}-${i}`);
+            if (img) img.src = url;
+        } catch(e) { /* file may not exist */ }
+    }
 }
 
 async function deleteAuditPhoto(communityId, fileId, storagePath, auditId) {
