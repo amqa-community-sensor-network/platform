@@ -7,12 +7,13 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-nav">Skip to main content</a>
     <!-- Login Screen -->
     <div id="login-screen" class="login-screen" style="display:none">
         <div class="login-card">
             <h2>ADEC Sensor Network Tracker</h2>
             <p>Sign in to continue</p>
-            <div id="login-error" class="login-error"></div>
+            <div id="login-error" class="login-error" role="alert" aria-live="assertive"></div>
             <form id="login-form-section" onsubmit="handleSignIn(); return false;" autocomplete="on">
                 <div class="login-field">
                     <input type="email" id="login-email" placeholder="Email" autocomplete="email" name="email">
@@ -420,7 +421,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="sensor-modal-title">Add New Sensor</h2>
-                <button class="modal-close" onclick="closeModal('modal-add-sensor')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-add-sensor')">&times;</button>
             </div>
             <form id="sensor-form" onsubmit="saveSensor(event)">
                 <input type="hidden" id="sensor-edit-id">
@@ -477,7 +478,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Move Sensor</h2>
-                <button class="modal-close" onclick="closeModal('modal-move-sensor')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-move-sensor')">&times;</button>
             </div>
             <form id="move-sensor-form" onsubmit="moveSensor(event)">
                 <input type="hidden" id="move-sensor-id">
@@ -513,7 +514,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Change Sensor Status</h2>
-                <button class="modal-close" onclick="closeModal('modal-status-change')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-status-change')">&times;</button>
             </div>
             <form id="status-change-form" onsubmit="saveStatusChange(event)">
                 <input type="hidden" id="status-change-sensor-id">
@@ -547,7 +548,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="contact-modal-title">Add New Contact</h2>
-                <button class="modal-close" onclick="closeModal('modal-add-contact')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-add-contact')">&times;</button>
             </div>
             <form id="contact-form" onsubmit="saveContact(event)">
                 <input type="hidden" id="contact-edit-id">
@@ -602,7 +603,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Add Note</h2>
-                <button class="modal-close" onclick="closeModal('modal-add-note')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-add-note')">&times;</button>
             </div>
             <form id="note-form" onsubmit="saveNote(event)">
                 <input type="hidden" id="note-context-id">
@@ -673,7 +674,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Log Communication</h2>
-                <button class="modal-close" onclick="closeModal('modal-comm')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-comm')">&times;</button>
             </div>
             <form id="comm-form" onsubmit="saveComm(event)">
                 <input type="hidden" id="comm-community-id">
@@ -713,7 +714,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2>Compose Email</h2>
-                <button class="modal-close" onclick="closeModal('modal-email')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-email')">&times;</button>
             </div>
             <div class="email-composer">
                 <div class="email-toolbar">
@@ -748,7 +749,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Edit Tags — <span id="edit-tags-community-name"></span></h2>
-                <button class="modal-close" onclick="closeModal('modal-edit-community-tags')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-edit-community-tags')">&times;</button>
             </div>
             <div class="form-group" style="margin-top:16px">
                 <label>Tags (click to add/remove)</label>
@@ -772,7 +773,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Annotate Change</h2>
-                <button class="modal-close" onclick="skipEditAnnotation()">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="skipEditAnnotation()">&times;</button>
             </div>
             <div class="form-group" style="margin-top:12px">
                 <p id="edit-annotation-summary" style="font-size:14px;color:var(--slate-700);line-height:1.5;padding:0 4px"></p>
@@ -797,7 +798,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Add New Community</h2>
-                <button class="modal-close" onclick="closeModal('modal-add-community')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-add-community')">&times;</button>
             </div>
             <form id="community-form" onsubmit="saveCommunity(event)">
                 <div class="form-group">
@@ -831,7 +832,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Contact Status Changed</h2>
-                <button class="modal-close" onclick="skipContactStatusNote()">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="skipContactStatusNote()">&times;</button>
             </div>
             <div class="form-group" style="margin-top:12px">
                 <p id="contact-status-note-summary" style="font-size:14px;color:var(--slate-700);line-height:1.5;padding:0 4px"></p>
@@ -876,7 +877,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Export Spreadsheet</h2>
-                <button class="modal-close" onclick="closeModal('modal-export')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-export')">&times;</button>
             </div>
             <input type="hidden" id="export-type">
             <div class="form-group" style="margin-top:16px">
@@ -895,7 +896,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Bulk Action — <span id="bulk-action-count">0</span> sensors selected</h2>
-                <button class="modal-close" onclick="closeModal('modal-bulk-action')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-bulk-action')">&times;</button>
             </div>
             <div class="form-group" style="margin-top:16px">
                 <label><input type="checkbox" id="bulk-do-move" onchange="toggleBulkFields()" checked> Move to Community</label>
@@ -925,7 +926,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Change Sensor Type</h2>
-                <button class="modal-close" onclick="closeModal('modal-type-change')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-type-change')">&times;</button>
             </div>
             <div style="padding: 20px 28px 8px">
                 <p style="font-size:13px;color:var(--slate-500);margin-bottom:16px">Sensor: <strong id="type-change-sensor-label"></strong></p>
@@ -942,7 +943,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Schedule Audit</h2>
-                <button class="modal-close" onclick="closeModal('modal-new-audit')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-new-audit')">&times;</button>
             </div>
             <form onsubmit="saveNewAudit(event)">
                 <div class="form-group"><label>Audit Pod</label><select id="audit-pod-input" required></select></div>
@@ -966,7 +967,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 id="audit-detail-modal-title">Audit Detail</h2>
-                <button class="modal-close" onclick="closeModal('modal-audit-detail')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-audit-detail')">&times;</button>
             </div>
             <div id="audit-detail-modal-body"></div>
         </div>
@@ -977,7 +978,7 @@
         <div class="modal-content modal-xl">
             <div class="modal-header">
                 <h2 id="analysis-modal-title">Audit Analysis</h2>
-                <button class="modal-close" onclick="closeAnalysisModal()">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeAnalysisModal()">&times;</button>
             </div>
             <div id="audit-analysis-body" style="padding:0 28px 28px"></div>
         </div>
@@ -988,7 +989,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 id="service-ticket-modal-title">Service Ticket</h2>
-                <button class="modal-close" onclick="closeModal('modal-service-ticket')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-service-ticket')">&times;</button>
             </div>
             <div id="service-ticket-modal-body"></div>
         </div>
@@ -999,7 +1000,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Open Service Ticket</h2>
-                <button class="modal-close" onclick="closeModal('modal-new-service-ticket')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-new-service-ticket')">&times;</button>
             </div>
             <form onsubmit="saveNewTicket(event)">
                 <div class="form-group"><label>Sensor</label><select id="ticket-sensor-input" required></select></div>
@@ -1024,7 +1025,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Log Collocation</h2>
-                <button class="modal-close" onclick="closeModal('modal-collocation')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-collocation')">&times;</button>
             </div>
             <form onsubmit="saveCollocation(event)">
                 <input type="hidden" id="collocation-sensor-id">
@@ -1059,7 +1060,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Close Service Ticket</h2>
-                <button class="modal-close" onclick="closeModal('modal-close-ticket')">&times;</button>
+                <button class="modal-close" aria-label="Close dialog" onclick="closeModal('modal-close-ticket')">&times;</button>
             </div>
             <div class="form-group" style="margin-top:12px">
                 <p style="font-size:14px;color:var(--slate-700)">Closing ticket for <strong id="close-ticket-sensor-label"></strong></p>

@@ -132,7 +132,7 @@ function handleSaveError(err) {
         raw.includes('violates') ? 'A data conflict occurred. Please try again.' :
         raw.includes('network') || raw.includes('fetch') ? 'Could not reach the server. Check your connection.' : raw;
     const msg = document.createElement('div');
-    msg.className = 'save-error-toast';
+    msg.className = 'save-error-toast'; msg.setAttribute('role', 'alert');
     msg.textContent = 'Save failed: ' + friendly;
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 6000);
@@ -140,7 +140,7 @@ function handleSaveError(err) {
 
 function showSuccessToast(text) {
     const msg = document.createElement('div');
-    msg.className = 'save-success-toast';
+    msg.className = 'save-success-toast'; msg.setAttribute('role', 'status');
     msg.textContent = text;
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 3000);
@@ -6211,7 +6211,7 @@ function generateAuditReport(auditId) {
     // DQO table rows — using labelHtml for subscripts
     const dqoRows = AUDIT_PARAMETERS.map(p => {
         const r = results[p.key];
-        if (!r) return `<tr><td>${p.labelHtml} (${p.unit})</td><td colspan="6" style="color:#94a3b8">No data</td></tr>`;
+        if (!r) return `<tr><td>${p.labelHtml} (${p.unit})</td><td colspan="6" style="color:#64748b">No data</td></tr>`;
         const d = r.dqo || {};
         const cls = (pass) => pass ? 'color:#1a7f37' : 'color:#c53030;font-weight:700';
         return `<tr>
@@ -6261,7 +6261,7 @@ function generateAuditReport(auditId) {
                     }).join('')}
                 </tbody>
             </table>
-            <p style="font-size:10px;color:#94a3b8;margin-top:4px">${cached.allRows.length} total hourly observations</p>
+            <p style="font-size:10px;color:#64748b;margin-top:4px">${cached.allRows.length} total hourly observations</p>
         `;
     }
 
@@ -6343,7 +6343,7 @@ function generateAuditReport(auditId) {
         ? `<div class="chart-card">
             <h4>${escapeHtml(shortB)} and ${escapeHtml(shortA)}: <strong>${p.labelHtml}</strong></h4>
             <div class="chart-sub">${dateRange}. Hourly data, first 24 hours removed</div>
-            <img src="${chartImages['ts-' + p.key]}" style="width:100%">
+            <img src="${chartImages['ts-' + p.key]}" style="width:100%" alt="Timeseries chart for ${p.label}">
             <div class="chart-legend"><span><span style="background:#1B2A4A;display:inline-block;width:20px;height:4px;border-radius:2px;vertical-align:middle"></span> ${escapeHtml(shortA)}</span><span><span style="background:#C9A84C;display:inline-block;width:20px;height:4px;border-radius:2px;vertical-align:middle"></span> ${escapeHtml(shortB)}</span></div>
         </div>` : '').join('');
     const scatterCards = AUDIT_PARAMETERS.map(p => {
@@ -6354,14 +6354,14 @@ function generateAuditReport(auditId) {
         ? `<div class="chart-card">
             <h4>${escapeHtml(shortB)} and ${escapeHtml(shortA)}: <strong>${p.labelHtml}</strong></h4>
             <div class="chart-sub">${dateRange}. Hourly data, first 24 hours removed</div>
-            <img src="${chartImages['scatter-' + p.key]}" style="width:100%">
+            <img src="${chartImages['scatter-' + p.key]}" style="width:100%" alt="Regression scatter plot for ${p.label}">
             <div class="chart-eq">${eqText}</div>
         </div>` : '';
     }).filter(Boolean);
 
     // Assemble full HTML
     const reportHtml = `<!DOCTYPE html>
-<html><head>
+<html lang="en"><head>
 <meta charset="UTF-8">
 <title>Audit Report \u2014 ${escapeHtml(communityName)} ${escapeHtml(audit.auditPodId)} ${audit.scheduledStart || ''}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -6403,7 +6403,7 @@ function generateAuditReport(auditId) {
     .print-controls { margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
     .print-controls button { padding: 10px 24px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 600; background: #1B2A4A; color: white; border: none; border-radius: 8px; cursor: pointer; }
     .print-controls label { font-size: 13px; color: #64748b; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    .report-footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+    0; text-align: center; }
     @media print {
         body { padding: 16px; padding-top: 32px; }
         .no-print { display: none !important; }

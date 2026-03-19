@@ -4,6 +4,35 @@
    Navy + slate + white
    ============================================= */
 
+/* ===== GLOBAL ACCESSIBILITY ===== */
+:focus-visible {
+    outline: 2px solid var(--navy-500);
+    outline-offset: 2px;
+}
+
+button:focus-visible, .btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(37, 99, 176, 0.3);
+    outline: none;
+}
+
+.skip-nav {
+    position: absolute;
+    left: -9999px;
+    top: 4px;
+    z-index: 10000;
+    background: var(--navy-800);
+    color: white;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.skip-nav:focus {
+    left: 16px;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ===== DESIGN TOKENS ===== */
@@ -3820,7 +3849,7 @@ th:hover .field-reorder-btns {
 
 .ticket-step { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
 .ticket-step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--slate-200); transition: all 0.15s ease; }
-.ticket-step-label { font-size: 9px; color: var(--slate-400); text-align: center; line-height: 1.2; }
+.ticket-step-label { font-size: 9px; color: var(--slate-500); text-align: center; line-height: 1.2; }
 
 .ticket-step.completed .ticket-step-dot { background: var(--navy-500); }
 .ticket-step.completed .ticket-step-label { color: var(--navy-600); font-weight: 600; }
@@ -3833,7 +3862,7 @@ th:hover .field-reorder-btns {
 .ticket-steps-detail .ticket-step-dot { width: 12px; height: 12px; }
 .ticket-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px 28px; }
 .ticket-field { display: flex; flex-direction: column; gap: 4px; }
-.ticket-field label { font-size: 11px; font-weight: 600; color: var(--slate-400); text-transform: uppercase; letter-spacing: 0.5px; }
+.ticket-field label { font-size: 11px; font-weight: 600; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.5px; }
 .ticket-field p { font-size: 14px; color: var(--slate-800); margin: 0; }
 .ticket-field.full-width { grid-column: 1 / -1; }
 .ticket-detail-actions {
