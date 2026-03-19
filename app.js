@@ -5491,7 +5491,8 @@ function renderScatterSection(auditId, parsed, results) {
         <h3 class="analysis-section-heading">Regression Plots</h3>
         <div class="analysis-chart-grid">
         ${AUDIT_PARAMETERS.map(p => `<div class="analysis-chart-card">
-            <h4 class="chart-title-editable" onclick="editChartTitle(this, 'scatter-${auditId}-${p.key}')">${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}<br><span style="font-weight:400;font-size:11px;color:var(--slate-400)">Hourly data, first 24 hours removed</span></h4>
+            <div class="chart-title-editable" onclick="editChartTitle(this)">${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}</div>
+            <div class="chart-subtitle-editable" onclick="editChartTitle(this)">Hourly data, first 24 hours removed</div>
             <button class="axis-edit-btn axis-edit-y" onclick="editChartAxis('scatter-${auditId}-${p.key}', 'y', this)">&#9998; Y</button>
             <button class="axis-edit-btn axis-edit-x" onclick="editChartAxis('scatter-${auditId}-${p.key}', 'x', this)">&#9998; X</button>
             <canvas id="scatter-${auditId}-${p.key}"></canvas>
@@ -5551,7 +5552,7 @@ function createScatterChart(canvasId, regression, param, parsed) {
                 legend: { display: true, position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14 } },
                 title: {
                     display: true,
-                    text: `R\u00B2 = ${regression.r2}   n = ${regression.n}`,
+                    text: `R\u00B2 = ${regression.r2}`,
                     font: { size: 12, family: "'JetBrains Mono', monospace" },
                     color: '#64748b',
                 },
@@ -5572,7 +5573,8 @@ function renderTimeSeriesSection(auditId, parsed) {
         <h3 class="analysis-section-heading">PM Time Series</h3>
         <div class="analysis-chart-grid">
         ${pmParams.map(p => `<div class="analysis-chart-card">
-            <h4 class="chart-title-editable" onclick="editChartTitle(this, 'ts-${auditId}-${p.key}')">${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}<br><span style="font-weight:400;font-size:11px;color:var(--slate-400)">Hourly data, first 24 hours removed</span></h4>
+            <div class="chart-title-editable" onclick="editChartTitle(this)">${parsed.sensorB.short} and ${parsed.sensorA.short} \u2014 ${p.labelHtml}</div>
+            <div class="chart-subtitle-editable" onclick="editChartTitle(this)">Hourly data, first 24 hours removed</div>
             <button class="axis-edit-btn axis-edit-y" onclick="editChartAxis('ts-${auditId}-${p.key}', 'y', this)">&#9998; Y</button>
             <canvas id="ts-${auditId}-${p.key}"></canvas>
         </div>`).join('')}
@@ -5628,28 +5630,23 @@ function createTimeSeriesChart(canvasId, parsed, param, audit) {
     analysisChartInstances.push(chart);
 }
 
-function editChartTitle(h4El, canvasId) {
-    if (h4El.querySelector('input')) return; // already editing
-    const currentText = h4El.textContent.trim();
+function editChartTitle(el) {
+    if (el.querySelector('input')) return;
+    const origHtml = el.innerHTML;
+    const currentText = el.textContent.trim();
     const input = document.createElement('input');
     input.type = 'text';
     input.value = currentText;
-    input.className = 'chart-title-input';
-    const origHtml = h4El.innerHTML;
-    h4El.innerHTML = '';
-    h4El.appendChild(input);
+    input.className = el.classList.contains('chart-subtitle-editable') ? 'chart-subtitle-input' : 'chart-title-input';
+    el.innerHTML = '';
+    el.appendChild(input);
     input.focus();
     input.select();
 
     const finish = () => {
         const newText = input.value.trim();
-        if (newText) {
-            h4El.innerHTML = escapeHtml(newText);
-        } else {
-            h4El.innerHTML = origHtml;
-        }
-        // Re-add the editable click
-        h4El.onclick = () => editChartTitle(h4El, canvasId);
+        el.innerHTML = newText ? escapeHtml(newText) : origHtml;
+        el.onclick = () => editChartTitle(el);
     };
     input.addEventListener('blur', finish);
     input.addEventListener('keydown', (e) => {
@@ -5943,7 +5940,7 @@ function generateAuditReport(auditId) {
                     responsive: false, animation: false,
                     plugins: {
                         legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-                        title: { display: true, text: 'R\u00B2 = ' + r.r2 + '   n = ' + r.n, font: { size: 11, family: "'JetBrains Mono', monospace" }, color: '#64748b' },
+                        title: { display: true, text: 'R\u00B2 = ' + r.r2, font: { size: 11, family: "'JetBrains Mono', monospace" }, color: '#64748b' },
                     },
                     scales: {
                         x: { title: { display: true, text: shortA + ' (' + p.unit + ')', font: { size: 10 } }, grid: { display: false } },

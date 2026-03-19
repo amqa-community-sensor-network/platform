@@ -2067,7 +2067,7 @@ tr:last-child td {
     font-size: 13px;
     font-weight: 600;
     color: var(--slate-700);
-    margin: 0 0 12px;
+    margin: 0 0 8px;
 }
 
 .analysis-chart-card {
@@ -2121,15 +2121,46 @@ tr:last-child td {
 }
 
 .chart-title-editable {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate-700);
     cursor: text;
     border-radius: 4px;
     padding: 2px 4px;
-    margin: -2px -4px;
+    margin: -2px -4px 0;
     transition: background 0.15s;
 }
 
 .chart-title-editable:hover {
     background: var(--slate-50);
+}
+
+.chart-subtitle-editable {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--slate-400);
+    cursor: text;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: 0 -4px 8px;
+    transition: background 0.15s;
+}
+
+.chart-subtitle-editable:hover {
+    background: var(--slate-50);
+}
+
+.chart-subtitle-input {
+    width: 100%;
+    font-size: 11px;
+    font-weight: 400;
+    font-family: var(--font-sans);
+    color: var(--slate-400);
+    border: 1px solid var(--slate-200);
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+    background: var(--surface);
 }
 
 .chart-title-input {
