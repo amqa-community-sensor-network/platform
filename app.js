@@ -299,6 +299,7 @@ let currentUser = null;
 let currentUserId = null;
 
 function showLoginScreen() {
+    document.getElementById('loading-overlay').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     hideAllAuthForms();
@@ -355,6 +356,7 @@ async function handleSignIn() {
 }
 
 async function checkMfaAndProceed() {
+    document.getElementById('loading-overlay').style.display = 'none';
     // Check if MFA is enforced for login challenges
     let mfaOn = true;
     try { const setting = await db.getAppSetting('mfa_required'); mfaOn = setting !== 'false'; } catch(e) { mfaOn = true; }
