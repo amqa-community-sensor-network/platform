@@ -3657,13 +3657,48 @@ async function renderSettings() {
     const session = await db.getSession();
     const userEmail = session?.user?.email || '';
 
+    const joinedDate = profile?.created_at ? formatDate(profile.created_at) : '—';
     document.getElementById('settings-profile').innerHTML = `
-        <div class="info-item"><label>Name</label><p>${profile?.name || '—'}</p></div>
-        <div class="info-item"><label>Email</label><p>${userEmail}</p></div>
+        <div class="info-item"><label>Name</label><p class="settings-editable-name" onclick="editProfileName(this)" title="Click to edit">${escapeHtml(profile?.name || '—')} <span style="font-size:11px;color:var(--slate-300);margin-left:4px">&#9998;</span></p></div>
+        <div class="info-item"><label>Email</label><p>${escapeHtml(userEmail)}</p></div>
+        <div class="info-item"><label>Joined</label><p>${joinedDate}</p></div>
     `;
 
     await renderAllowedUsers(userEmail);
     await renderMfaSettings();
+}
+
+function editProfileName(el) {
+    const current = el.textContent.replace('✎', '').trim();
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = current === '—' ? '' : current;
+    input.style.cssText = 'font-size:14px;padding:4px 8px;border:1px solid var(--slate-200);border-radius:6px;width:100%;font-family:var(--font-sans)';
+    input.placeholder = 'Enter your name';
+    el.innerHTML = '';
+    el.appendChild(input);
+    input.focus();
+    input.select();
+
+    const save = async () => {
+        const newName = input.value.trim();
+        if (!newName) { renderSettings(); return; }
+        if (newName !== current) {
+            const session = await db.getSession();
+            if (session?.user?.id) {
+                await supa.from('profiles').update({ name: newName }).eq('id', session.user.id);
+                currentUser = newName;
+                document.querySelector('#sidebar-user .user-name').textContent = newName;
+            }
+        }
+        renderSettings();
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { renderSettings(); }
+    });
 }
 
 async function renderAllowedUsers(currentEmail) {
@@ -3671,10 +3706,15 @@ async function renderAllowedUsers(currentEmail) {
     const { data, error } = await supa.from('allowed_emails').select('*').order('email');
     if (error) { console.error(error); return; }
 
+    // Get profiles to determine who has actually signed up
+    const { data: profiles } = await supa.from('profiles').select('email');
+    const signedUpEmails = new Set((profiles || []).map(p => (p.email || '').toLowerCase()).filter(Boolean));
+
     // Show/hide admin-only controls
     document.getElementById('settings-add-user-row').style.display = isAdmin ? '' : 'none';
 
-    const active = (data || []).filter(r => r.status === 'active');
+    const active = (data || []).filter(r => r.status === 'active' && signedUpEmails.has(r.email.toLowerCase()));
+    const pending = (data || []).filter(r => r.status === 'active' && !signedUpEmails.has(r.email.toLowerCase()));
     const archived = (data || []).filter(r => r.status === 'archived' || r.status === 'revoked');
 
     document.getElementById('settings-active-users').innerHTML = active.map(row => {
@@ -3703,6 +3743,25 @@ async function renderAllowedUsers(currentEmail) {
             <span style="display:flex;gap:6px;align-items:center">${roleToggle}${archiveBtn}${deleteBtn}</span>
         </div>`;
     }).join('') || '<p style="color:var(--slate-400);font-size:13px">No active users.</p>';
+
+    // Pending invites
+    const pendingSection = document.getElementById('settings-pending-section');
+    if (pending.length > 0 && isAdmin) {
+        pendingSection.style.display = '';
+        document.getElementById('settings-pending-users').innerHTML = pending.map(row => {
+            return `<div class="settings-user-row">
+                <span>
+                    <span class="settings-user-email">${escapeHtml(row.email)}</span>
+                    <span style="background:#fff8e8;color:#8a6d20;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:600;margin-left:6px">Pending</span>
+                </span>
+                <span style="display:flex;gap:6px;align-items:center">
+                    <button class="btn btn-sm" style="color:#e11d48;border-color:#fecdd3;font-size:11px;font-weight:600" onclick="permanentlyDeleteUser('${row.id}', '${escapeHtml(row.email).replace(/'/g, "\\&#39;")}')">Revoke</button>
+                </span>
+            </div>`;
+        }).join('');
+    } else {
+        pendingSection.style.display = 'none';
+    }
 
     const archivedSection = document.getElementById('settings-archived-section');
     if (archived.length > 0 && isAdmin) {
@@ -3738,13 +3797,28 @@ async function renderAllowedUsers(currentEmail) {
 
 function openInviteUserModal() {
     if (currentUserRole !== 'admin') { showAlert('Access Denied', 'Only admins can invite users.'); return; }
+    resetInviteModal();
+    openModal('modal-invite-user');
+}
+
+function resetInviteModal() {
+    document.getElementById('invite-modal-title').textContent = 'Invite New User';
     document.getElementById('invite-email').value = '';
     document.getElementById('invite-role').value = 'user';
-    document.getElementById('invite-message').value = '';
+    document.getElementById('invite-step-form').style.display = '';
+    document.getElementById('invite-step-success').style.display = 'none';
     const errEl = document.getElementById('invite-error');
     errEl.textContent = '';
     errEl.classList.remove('visible');
-    openModal('modal-invite-user');
+}
+
+function closeInviteModal() {
+    closeModal('modal-invite-user');
+    // Refresh user list in case invites were added
+    (async () => {
+        const session = await db.getSession();
+        await renderAllowedUsers(session?.user?.email || '');
+    })();
 }
 
 async function sendUserInvite(event) {
@@ -3753,39 +3827,40 @@ async function sendUserInvite(event) {
 
     const email = document.getElementById('invite-email').value.trim().toLowerCase();
     const role = document.getElementById('invite-role').value || 'user';
-    const personalMessage = document.getElementById('invite-message').value.trim();
     const errEl = document.getElementById('invite-error');
     errEl.textContent = '';
     errEl.classList.remove('visible');
 
     if (!email) { errEl.textContent = 'Please enter an email address.'; errEl.classList.add('visible'); return; }
 
+    const btn = document.getElementById('invite-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
     // Add to allowed_emails via RPC (bypasses RLS, checks admin server-side)
     const { error } = await supa.rpc('invite_user', { invite_email: email, invite_role: role });
     if (error) {
         errEl.textContent = error.message.includes('already an active') ? 'That email is already an active user.' : error.message;
         errEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Send Invite';
         return;
     }
 
-    // Build invitation email
+    // Open email client with pre-filled invite
     const signupUrl = window.location.origin + window.location.pathname;
     const inviterName = currentUser || 'An administrator';
     const subject = 'You\'ve been invited to the AMQA Sensor Network Tracker';
-    let body = `Hi,\n\n${inviterName} has invited you to join the AMQA Community Sensor Network Tracking Platform.\n\nSign up here: ${signupUrl}\n\nUse this email address (${email}) to create your account. You'll be asked to set up an authenticator app for security during your first sign-in.`;
-    if (personalMessage) {
-        body += `\n\nMessage from ${inviterName}:\n${personalMessage}`;
-    }
-    body += '\n\nADEC Division of Air Quality\nAir Monitoring and Quality Assurance';
+    const body = `${inviterName} has invited you to join the AMQA Community Sensor Network Tracking Platform.\n\nSign up here:\n${signupUrl}\n\nUse this email address (${email}) to create your account. You'll be asked to set up an authenticator app for security during your first sign-in.`;
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    // Open email client
-    const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailto, '_blank');
-
-    closeModal('modal-invite-user');
-    const session = await db.getSession();
-    await renderAllowedUsers(session?.user?.email || '');
-    showAlert('Invite Sent', `${email} has been added to the approved user list and your email client has been opened with the invitation. Make sure to send the email.`);
+    // Show success state
+    document.getElementById('invite-modal-title').textContent = 'Invite Sent';
+    document.getElementById('invite-success-email').textContent = `${email} has been approved. Your email app has been opened with the invitation — just hit send.`;
+    document.getElementById('invite-step-form').style.display = 'none';
+    document.getElementById('invite-step-success').style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Send Invite';
 }
 
 async function archiveUser(id) {

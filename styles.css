@@ -3418,6 +3418,16 @@ tr:last-child td {
     color: var(--slate-800);
     font-weight: 500;
 }
+.settings-editable-name {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    transition: background 0.15s;
+}
+.settings-editable-name:hover {
+    background: var(--slate-50);
+}
 
 .settings-user-row {
     display: flex;
