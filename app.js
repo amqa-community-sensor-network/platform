@@ -397,8 +397,7 @@ async function startMfaEnrollment() {
     if (error) { showLoginError(error.message); return; }
 
     document.getElementById('mfa-setup-qr').innerHTML = `
-        <img src="${data.totp.qr_code}" alt="QR Code" style="width:200px;height:200px">
-        <p style="font-size:11px;color:var(--slate-400);margin-top:8px;word-break:break-all">Manual code: <code style="font-family:var(--font-mono);color:var(--slate-600)">${data.totp.secret}</code></p>
+        <img src="${data.totp.qr_code}" alt="" style="width:200px;height:200px">
     `;
     document.getElementById('mfa-setup-section').dataset.factorId = data.id;
 }
@@ -7142,10 +7141,20 @@ loadDarkMode();
     try {
     // Handle auth redirects (email confirmation links, password resets)
     const hash = window.location.hash;
-    if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery'))) {
+    if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery') || hash.includes('type=invite'))) {
         const { data } = await supa.auth.getSession();
         if (data?.session) {
             window.history.replaceState(null, '', window.location.pathname);
+            // For invited users, create their profile if it doesn't exist
+            const profile = await db.getProfile();
+            if (!profile) {
+                const user = data.session.user;
+                await supa.rpc('upsert_profile', {
+                    user_id: user.id,
+                    user_email: user.email,
+                    user_name: user.user_metadata?.name || user.email.split('@')[0],
+                });
+            }
             await checkMfaAndProceed();
             return;
         }
