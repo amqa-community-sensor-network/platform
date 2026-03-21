@@ -403,27 +403,22 @@ async function showMfaSetup() {
         return;
     }
 
-    // Render QR code — convert SVG data URI to canvas for reliable scanning
+    // Render QR code — use <img> directly (canvas approach fails silently on
+    // Safari and some browsers that taint/block SVG data URIs in Image objects)
     const qrContainer = document.getElementById('mfa-setup-qr');
     const qrSrc = data.totp.qr_code;
-    const img = new Image();
-    img.onload = function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 300;
-        canvas.height = 300;
-        canvas.style.cssText = 'display:block;margin:0 auto;width:250px;height:250px';
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 300, 300);
-        ctx.drawImage(img, 0, 0, 300, 300);
-        qrContainer.innerHTML = '';
-        qrContainer.appendChild(canvas);
-    };
-    img.onerror = function() {
-        // Fallback to plain img
-        qrContainer.innerHTML = `<img src="${qrSrc}" style="width:250px;height:250px;display:block;margin:0 auto">`;
-    };
+    qrContainer.innerHTML = '';
+    const img = document.createElement('img');
     img.src = qrSrc;
+    img.alt = 'Scan this QR code with your authenticator app';
+    img.style.cssText = 'display:block;margin:0 auto;width:250px;height:250px;background:#fff;padding:8px;border-radius:8px;border:1px solid #e2e8f0';
+    img.onerror = function() {
+        // If the SVG data URI fails entirely, show the TOTP URI for manual entry
+        qrContainer.innerHTML = '<p style="font-size:13px;color:var(--slate-500);text-align:center">QR code could not be displayed.<br>Enter this key manually in your authenticator app:</p>'
+            + '<code style="display:block;text-align:center;word-break:break-all;font-size:12px;background:var(--slate-50);padding:12px;border-radius:6px;margin-top:8px;font-family:var(--font-mono)">'
+            + (data.totp.secret || data.totp.uri || '') + '</code>';
+    };
+    qrContainer.appendChild(img);
     document.getElementById('mfa-setup-section').dataset.factorId = data.id;
 
     // Now show the screen
@@ -7101,19 +7096,26 @@ async function importSensors(event) {
     // Handle query-param based auth tokens (email confirmation links)
     const params = new URLSearchParams(window.location.search);
     if (params.has('token_hash')) {
-        await supa.auth.verifyOtp({
-            token_hash: params.get('token_hash'),
-            type: params.get('type'),
-        });
+        try {
+            await supa.auth.verifyOtp({
+                token_hash: params.get('token_hash'),
+                type: params.get('type'),
+            });
+        } catch (otpErr) {
+            console.warn('OTP verification failed (link may be expired):', otpErr);
+        }
         window.history.replaceState(null, '', window.location.pathname);
     }
 
-    // Clean up any hash fragments
+    // Let Supabase client process any hash-fragment tokens BEFORE we clear them.
+    // Supabase v2 uses hash fragments (#access_token=...&type=...) for email
+    // confirmation and magic-link redirects; getSession() detects and consumes them.
+    const session = await db.getSession();
+
+    // Clean up any hash fragments after getSession has consumed them
     if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
     }
-
-    const session = await db.getSession();
     if (session) {
         // Existing user — check if MFA was recently verified
         const mfaVerifiedAt = sessionStorage.getItem('mfa_verified_at');
