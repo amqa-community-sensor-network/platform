@@ -308,7 +308,33 @@ function showLoginScreen() {
 
 function showSignUpForm() {
     hideAllAuthForms();
+    const emailInput = document.getElementById('signup-email');
+    emailInput.readOnly = false;
+    emailInput.value = '';
+    document.getElementById('signup-name').value = '';
+    document.getElementById('signup-password').value = '';
+    document.getElementById('signup-password-confirm').value = '';
+    document.getElementById('signup-heading').textContent = 'Create your account to get started.';
+    document.getElementById('signup-toggle-link').style.display = '';
     document.getElementById('signup-form-section').style.display = '';
+    document.getElementById('signup-form-section').dataset.invited = '';
+}
+
+function showInviteSignup(email) {
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    hideAllAuthForms();
+    const emailInput = document.getElementById('signup-email');
+    emailInput.value = email;
+    emailInput.readOnly = true;
+    document.getElementById('signup-name').value = '';
+    document.getElementById('signup-password').value = '';
+    document.getElementById('signup-password-confirm').value = '';
+    document.getElementById('signup-heading').textContent = 'Welcome! Set up your account to get started.';
+    document.getElementById('signup-toggle-link').style.display = 'none';
+    document.getElementById('signup-form-section').style.display = '';
+    document.getElementById('signup-form-section').dataset.invited = 'true';
+    document.getElementById('signup-name').focus();
 }
 
 async function backToSignIn() {
@@ -453,35 +479,48 @@ async function handleSignUp() {
     const name = document.getElementById('signup-name').value.trim();
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
+    const confirmPassword = document.getElementById('signup-password-confirm').value;
+    const isInvited = document.getElementById('signup-form-section').dataset.invited === 'true';
+
     if (!name || !email || !password) { showLoginError('Please fill in all fields.'); return; }
     if (password.length < 6) { showLoginError('Password must be at least 6 characters.'); return; }
+    if (password !== confirmPassword) { showLoginError('Passwords do not match.'); return; }
 
     try {
-        // Check if this email was already invited (auth account exists from invite API)
-        // If so, just update their password and sign them in directly
-        const result = await db.signUp(email, password, name);
-        hideLoginError();
-
-        // If we got a session, go straight in
-        if (result?.session) {
+        if (isInvited) {
+            // Invited user — they already have a session from the invite link
+            // Update their password and create their profile
+            await supa.auth.updateUser({ password });
+            const session = await db.getSession();
+            if (session?.user) {
+                await supa.rpc('upsert_profile', {
+                    user_id: session.user.id,
+                    user_email: email,
+                    user_name: name,
+                });
+            }
             await checkMfaAndProceed();
-            return;
-        }
+        } else {
+            // Regular signup
+            const result = await db.signUp(email, password, name);
+            hideLoginError();
 
-        // If signUp returned a user but no session, the account may already exist
-        // from an invite, or email confirmation is required. Try signing in.
-        try {
-            await db.signIn(email, password);
-            await checkMfaAndProceed();
-        } catch(signInErr) {
-            // If sign-in also fails, the account might exist from invite with a different password.
-            // Tell user to sign in with the invite link or contact admin.
-            showAlert('Check Your Email', 'If you received an invite, click the link in that email to get started. Otherwise, try signing in with your existing password.', () => {
-                showSignInForm();
-            });
+            if (result?.session) {
+                await checkMfaAndProceed();
+                return;
+            }
+
+            // Try signing in directly
+            try {
+                await db.signIn(email, password);
+                await checkMfaAndProceed();
+            } catch(signInErr) {
+                showAlert('Check Your Email', 'If you received an invite, click the link in that email to get started. Otherwise, try signing in with your existing password.', () => {
+                    showSignInForm();
+                });
+            }
         }
     } catch (err) {
-        // signUp failed — could be "email already registered" from invite
         if (err.message?.includes('already been registered') || err.message?.includes('already registered')) {
             showLoginError('This email already has an account. Try signing in instead, or check your email for an invite link.');
         } else {
@@ -7081,8 +7120,15 @@ async function importSensors(event) {
         const { data } = await supa.auth.getSession();
         if (data?.session) {
             window.history.replaceState(null, '', window.location.pathname);
-            // For invited users, create their profile if it doesn't exist
+            const isInvite = hash.includes('type=invite');
             const profile = await db.getProfile();
+
+            if (isInvite && !profile) {
+                // Invited user arriving for the first time — show signup form to set name/password
+                showInviteSignup(data.session.user.email);
+                return;
+            }
+
             if (!profile) {
                 const user = data.session.user;
                 await supa.rpc('upsert_profile', {
