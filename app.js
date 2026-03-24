@@ -2336,6 +2336,7 @@ async function saveContact(e) {
     let phoneChanged = false;
     let oldEmail = '';
     let oldPhone = '';
+    let infoChanges = []; // Track all field changes for history note
 
     if (editId) {
         const old = contacts.find(c => c.id === editId);
@@ -2345,6 +2346,11 @@ async function saveContact(e) {
             else if (!wasActive && isActive) statusChanged = 'reactivated';
             if ((old.email || '') !== data.email) { emailChanged = true; oldEmail = old.email || ''; }
             if ((old.phone || '') !== data.phone) { phoneChanged = true; oldPhone = old.phone || ''; }
+            // Track name, role, org, community changes
+            if ((old.name || '') !== data.name) infoChanges.push(`Name changed from "${old.name || '(empty)'}" to "${data.name || '(empty)'}"`);
+            if ((old.role || '') !== data.role) infoChanges.push(`Role changed from "${old.role || '(empty)'}" to "${data.role || '(empty)'}"`);
+            if ((old.org || '') !== data.org) infoChanges.push(`Organization changed from "${old.org || '(empty)'}" to "${data.org || '(empty)'}"`);
+            if ((old.community || '') !== data.community) infoChanges.push(`Community changed from "${getCommunityName(old.community) || '(none)'}" to "${getCommunityName(data.community) || '(none)'}"`);
         }
         const idx = contacts.findIndex(c => c.id === editId);
         if (idx >= 0) contacts[idx] = data;
@@ -2372,17 +2378,16 @@ async function saveContact(e) {
     closeModal('modal-add-contact'); showSuccessToast('Contact saved');
     renderContacts();
 
-    // Auto-log email/phone changes (not in setup mode)
+    // Auto-log contact info changes (not in setup mode)
     if (!setupMode && editId) {
-        if (emailChanged) {
+        // Collect all field changes into a single note (name, role, org, community, email, phone)
+        const allChanges = [...infoChanges];
+        if (emailChanged) allChanges.push(`Email changed from "${oldEmail || '(empty)'}" to "${data.email || '(empty)'}"`);
+        if (phoneChanged) allChanges.push(`Phone changed from "${oldPhone || '(empty)'}" to "${data.phone || '(empty)'}"`);
+
+        if (allChanges.length > 0) {
             const note = { id: generateId('n'), date: nowDatetime(), type: 'Info Edit',
-                text: `${data.name} email changed from "${oldEmail || '(empty)'}" to "${data.email || '(empty)'}".`,
-                createdBy: getCurrentUserName(), createdById: currentUserId, taggedSensors: [], taggedCommunities: data.community ? [data.community] : [], taggedContacts: [data.id] };
-            notes.push(note); persistNote(note);
-        }
-        if (phoneChanged) {
-            const note = { id: generateId('n'), date: nowDatetime(), type: 'Info Edit',
-                text: `${data.name} phone changed from "${oldPhone || '(empty)'}" to "${data.phone || '(empty)'}".`,
+                text: `Contact updated: ${allChanges.join('; ')}.`,
                 createdBy: getCurrentUserName(), createdById: currentUserId, taggedSensors: [], taggedCommunities: data.community ? [data.community] : [], taggedContacts: [data.id] };
             notes.push(note); persistNote(note);
         }
@@ -2467,7 +2472,7 @@ function showContactView(contactId) {
     if (!c) return;
     currentContact = contactId;
 
-    document.getElementById('contact-detail-name').innerHTML = escapeHtml(c.name) + (c.active === false ? '<span class="contact-inactive-badge" style="margin-left:10px;font-size:12px">Inactive</span>' : '');
+    document.getElementById('contact-detail-name').innerHTML = '<span class="editable-field" onclick="inlineEditContact(\'' + c.id + '\', \'name\')">' + escapeHtml(c.name) + '</span>' + (c.active === false ? '<span class="contact-inactive-badge" style="margin-left:10px;font-size:12px">Inactive</span>' : '');
     if (setupMode) {
         document.getElementById('contact-info-card').innerHTML = `
             <div class="info-item"><label>Name</label>
@@ -2499,14 +2504,18 @@ function showContactView(contactId) {
         `;
     } else {
         document.getElementById('contact-info-card').innerHTML = `
-            <div class="info-item"><label>Role</label><p>${c.role || '—'}</p></div>
-            <div class="info-item"><label>Community</label><p><span class="clickable" onclick="showCommunity('${c.community}')">${getCommunityName(c.community)}</span></p></div>
-            <div class="info-item"><label>Organization</label><p>${c.org || '—'}</p></div>
-            <div class="info-item"><label>Email</label><p>${c.email ? `<a href="#" class="clickable" onclick="openQuickEmail('${c.id}')">${c.email}</a>` : '—'}</p></div>
-            <div class="info-item"><label>Phone</label><p>${c.phone ? `<a href="tel:${c.phone}" class="clickable">${c.phone}</a>` : '—'}</p></div>
-            <div class="info-item"><label>Status</label><p>${c.active === false ? 'Inactive' : 'Active'}</p></div>
+            <div class="info-item"><label>Role</label><p class="editable-field" onclick="inlineEditContact('${c.id}', 'role')">${c.role || '<span class="field-placeholder">Role / Title</span>'}</p></div>
+            <div class="info-item"><label>Community</label><p class="editable-field" onclick="inlineEditContactCommunity('${c.id}')">${getCommunityName(c.community)} <a class="move-sensor-link" onclick="event.stopPropagation(); showCommunity('${c.community}')">View &rarr;</a></p></div>
+            <div class="info-item"><label>Organization</label><p class="editable-field" onclick="inlineEditContact('${c.id}', 'org')">${c.org || '<span class="field-placeholder">Organization</span>'}</p></div>
+            <div class="info-item"><label>Email</label><p class="editable-field" onclick="inlineEditContact('${c.id}', 'email')">${c.email || '<span class="field-placeholder">Email</span>'}</p></div>
+            <div class="info-item"><label>Phone</label><p class="editable-field" onclick="inlineEditContact('${c.id}', 'phone')">${c.phone || '<span class="field-placeholder">Phone</span>'}</p></div>
+            <div class="info-item"><label>Status</label><p>${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--navy-500);font-weight:600">Active</span>'}</p></div>
         `;
     }
+
+    // Reset contact history filter
+    const contactFilterEl = document.getElementById('contact-history-filter');
+    if (contactFilterEl) contactFilterEl.value = '';
 
     // Combine notes and comms into one list
     const contactNotes = notes.filter(n => n.taggedContacts && n.taggedContacts.includes(contactId));
@@ -2520,28 +2529,201 @@ function showContactView(contactId) {
     pushViewHistory();
 }
 
-function openEditCurrentContact() {
+const CONTACT_FILTER_GROUPS = {
+    '_edits': ['Info Edit', 'Status Change'],
+};
+
+function filterContactHistory() {
     if (!currentContact) return;
-    const c = contacts.find(x => x.id === currentContact);
-    if (!c) return;
-    document.getElementById('contact-modal-title').textContent = 'Edit Contact';
-    document.getElementById('contact-edit-id').value = c.id;
-    document.getElementById('contact-name-input').value = c.name;
-    document.getElementById('contact-role-input').value = c.role || '';
-    populateGroupedCommunitySelect('contact-community-input');
-    document.getElementById('contact-community-input').value = c.community;
-    document.getElementById('contact-email-input').value = c.email || '';
-    document.getElementById('contact-phone-input').value = c.phone || '';
-    document.getElementById('contact-org-input').value = c.org || '';
-    // Set active/inactive
-    if (c.active === false) {
-        document.getElementById('contact-active-no').checked = true;
+    const filterVal = document.getElementById('contact-history-filter')?.value || '';
+
+    let contactNotes = notes.filter(n => n.taggedContacts && n.taggedContacts.includes(currentContact));
+    let contactComms = comms.filter(cm => cm.taggedContacts && cm.taggedContacts.includes(currentContact))
+        .map(cm => ({ ...cm, type: cm.commType || cm.type }));
+
+    if (filterVal === 'Communication') {
+        renderTimeline('contact-all-timeline', contactComms);
+    } else if (filterVal && CONTACT_FILTER_GROUPS[filterVal]) {
+        contactNotes = contactNotes.filter(n => CONTACT_FILTER_GROUPS[filterVal].includes(n.type));
+        renderTimeline('contact-all-timeline', contactNotes);
     } else {
-        document.getElementById('contact-active-yes').checked = true;
+        const allItems = [...contactNotes, ...contactComms];
+        renderTimeline('contact-all-timeline', allItems);
     }
-    // Show delete button
-    document.getElementById('delete-contact-btn').style.display = '';
-    openModal('modal-add-contact');
+}
+
+
+function inlineEditContact(contactId, field) {
+    const c = contacts.find(x => x.id === contactId);
+    if (!c) return;
+
+    const labels = { name: 'Name', role: 'Role', org: 'Organization', email: 'Email', phone: 'Phone' };
+    const label = labels[field] || field;
+    const oldVal = c[field] || '';
+
+    // Find the editable-field element that was clicked
+    const infoCard = document.getElementById('contact-info-card');
+    const nameHeader = document.getElementById('contact-detail-name');
+
+    let targetP;
+    if (field === 'name') {
+        targetP = nameHeader.querySelector('.editable-field');
+    } else {
+        const items = infoCard.querySelectorAll('.info-item');
+        for (const item of items) {
+            const lbl = item.querySelector('label');
+            if (lbl && lbl.textContent.trim() === label) {
+                targetP = item.querySelector('.editable-field');
+                break;
+            }
+        }
+    }
+
+    if (!targetP) return;
+
+    const inputType = field === 'email' ? 'email' : field === 'phone' ? 'tel' : 'text';
+    const input = document.createElement('input');
+    input.type = inputType;
+    input.className = 'inline-edit-input';
+    input.value = oldVal;
+    input.placeholder = label;
+    input.style.width = '100%';
+    input.style.margin = '0';
+
+    targetP.innerHTML = '';
+    targetP.classList.remove('editable-field');
+    targetP.style.cursor = 'default';
+    targetP.onclick = null;
+    targetP.appendChild(input);
+    input.focus();
+    input.select();
+
+    let handled = false;
+
+    function save() {
+        if (handled) return;
+        handled = true;
+        const newVal = input.value.trim();
+        if (field === 'email' && newVal && !newVal.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            handled = false;
+            input.style.borderColor = 'var(--aurora-rose)';
+            input.focus();
+            return;
+        }
+
+        if (newVal !== oldVal) {
+            c[field] = newVal;
+            persistContact(c);
+
+            if (field === 'name') {
+                const tab = openTabs.find(t => t.id === getTabId('contact', contactId));
+                if (tab) { tab.label = c.name; renderOpenTabs(); }
+            }
+
+            if (!setupMode) {
+                const noteObj = {
+                    id: generateId('n'), date: nowDatetime(), type: 'Info Edit',
+                    text: `${label} changed from "${oldVal || '(empty)'}" to "${newVal || '(empty)'}" for ${c.name}.`,
+                    createdBy: getCurrentUserName(), createdById: currentUserId,
+                    taggedSensors: [], taggedCommunities: c.community ? [c.community] : [], taggedContacts: [contactId],
+                };
+                notes.push(noteObj);
+                persistNote(noteObj);
+            }
+        }
+
+        showContactView(contactId);
+    }
+
+    function cancel() {
+        if (handled) return;
+        handled = true;
+        showContactView(contactId);
+    }
+
+    input.addEventListener('blur', function() {
+        setTimeout(save, 100);
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            save();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancel();
+        }
+    });
+}
+
+function inlineEditContactCommunity(contactId) {
+    const c = contacts.find(x => x.id === contactId);
+    if (!c) return;
+
+    const oldVal = c.community || '';
+    const infoCard = document.getElementById('contact-info-card');
+    const items = infoCard.querySelectorAll('.info-item');
+    let targetP;
+    for (const item of items) {
+        const lbl = item.querySelector('label');
+        if (lbl && lbl.textContent.trim() === 'Community') {
+            targetP = item.querySelector('.editable-field');
+            break;
+        }
+    }
+    if (!targetP) return;
+
+    const select = document.createElement('select');
+    select.className = 'inline-edit-select';
+    select.style.width = '100%';
+    select.innerHTML = '<option value="">-- Select --</option>' +
+        [...COMMUNITIES].sort((a, b) => a.name.localeCompare(b.name))
+            .map(cm => `<option value="${cm.id}" ${c.community === cm.id ? 'selected' : ''}>${cm.name}</option>`)
+            .join('');
+
+    targetP.innerHTML = '';
+    targetP.classList.remove('editable-field');
+    targetP.style.cursor = 'default';
+    targetP.onclick = null;
+    targetP.appendChild(select);
+    select.focus();
+
+    let handled = false;
+
+    function save() {
+        if (handled) return;
+        handled = true;
+        const newVal = select.value;
+        if (newVal !== oldVal) {
+            c.community = newVal;
+            persistContact(c);
+
+            if (!setupMode) {
+                const oldName = oldVal ? getCommunityName(oldVal) : '(none)';
+                const newName = newVal ? getCommunityName(newVal) : '(none)';
+                const noteObj = {
+                    id: generateId('n'), date: nowDatetime(), type: 'Info Edit',
+                    text: `Community changed from "${oldName}" to "${newName}" for ${c.name}.`,
+                    createdBy: getCurrentUserName(), createdById: currentUserId,
+                    taggedSensors: [], taggedCommunities: [oldVal, newVal].filter(Boolean), taggedContacts: [contactId],
+                };
+                notes.push(noteObj);
+                persistNote(noteObj);
+            }
+        }
+        showContactView(contactId);
+    }
+
+    select.addEventListener('change', save);
+    select.addEventListener('blur', function() {
+        setTimeout(function() { if (!handled) save(); }, 100);
+    });
+    select.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            if (!handled) { handled = true; showContactView(contactId); }
+        }
+    });
 }
 
 function deleteCurrentContact() {
@@ -3088,8 +3270,7 @@ function nowDatetime() {
         String(now.getMonth() + 1).padStart(2, '0') + '-' +
         String(now.getDate()).padStart(2, '0') + 'T' +
         String(now.getHours()).padStart(2, '0') + ':' +
-        String(now.getMinutes()).padStart(2, '0') + ':' +
-        String(now.getSeconds()).padStart(2, '0');
+        String(now.getMinutes()).padStart(2, '0');
 }
 
 function formatDate(dateStr) {
@@ -4343,21 +4524,57 @@ function openBulkActionModal() {
     document.getElementById('bulk-action-date').value = nowDatetime();
     document.getElementById('bulk-do-move').checked = true;
     document.getElementById('bulk-do-status').checked = false;
+    document.getElementById('bulk-do-collocation').checked = false;
+    document.getElementById('bulk-collocation-start').value = '';
+    document.getElementById('bulk-collocation-end').value = '';
+    populateBulkCollocationDropdown();
     toggleBulkFields();
     openModal('modal-bulk-action');
+}
+
+function populateBulkCollocationDropdown() {
+    const select = document.getElementById('bulk-collocation-location');
+    // Separate regulatory sites from other communities
+    const regulatory = [];
+    const others = [];
+    [...COMMUNITIES].sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+        const tags = getCommunityTags(c.id);
+        if (tags.includes('Regulatory Site')) {
+            regulatory.push(c);
+        } else {
+            others.push(c);
+        }
+    });
+    let html = '<option value="">— Select Location —</option>';
+    if (regulatory.length) {
+        html += '<optgroup label="Regulatory Sites">';
+        regulatory.forEach(c => { html += `<option value="${c.name}">${c.name}</option>`; });
+        html += '</optgroup>';
+        html += '<optgroup label="All Communities">';
+        others.forEach(c => { html += `<option value="${c.name}">${c.name}</option>`; });
+        html += '</optgroup>';
+    } else {
+        [...COMMUNITIES].sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+            html += `<option value="${c.name}">${c.name}</option>`;
+        });
+    }
+    select.innerHTML = html;
 }
 
 function toggleBulkFields() {
     const doMove = document.getElementById('bulk-do-move').checked;
     const doStatus = document.getElementById('bulk-do-status').checked;
+    const doCollocation = document.getElementById('bulk-do-collocation').checked;
     document.getElementById('bulk-move-community').style.display = doMove ? '' : 'none';
     document.getElementById('bulk-status-list').style.display = doStatus ? '' : 'none';
+    document.getElementById('bulk-collocation-fields').style.display = doCollocation ? '' : 'none';
 }
 
 function executeBulkAction() {
     const doMove = document.getElementById('bulk-do-move').checked;
     const doStatus = document.getElementById('bulk-do-status').checked;
-    if (!doMove && !doStatus) { showAlert('Validation Error', 'Select at least one action.'); return; }
+    const doCollocation = document.getElementById('bulk-do-collocation').checked;
+    if (!doMove && !doStatus && !doCollocation) { showAlert('Validation Error', 'Select at least one action.'); return; }
 
     const userNotes = document.getElementById('bulk-action-notes').value.trim();
     const eventDate = document.getElementById('bulk-action-date').value || nowDatetime();
@@ -4367,6 +4584,9 @@ function executeBulkAction() {
     let toCommunityId = null;
     let toName = '';
     let newStatuses = [];
+    let collocationLocation = '';
+    let collocationStart = '';
+    let collocationEnd = '';
 
     if (doMove) {
         toCommunityId = document.getElementById('bulk-move-community').value;
@@ -4377,6 +4597,15 @@ function executeBulkAction() {
     if (doStatus) {
         newStatuses = getSelectedStatuses('bulk-status-list');
         if (newStatuses.length === 0) { showAlert('Validation Error', 'Select at least one status.'); return; }
+    }
+
+    if (doCollocation) {
+        collocationLocation = document.getElementById('bulk-collocation-location').value;
+        collocationStart = document.getElementById('bulk-collocation-start').value;
+        collocationEnd = document.getElementById('bulk-collocation-end').value;
+        if (!collocationLocation) { showAlert('Validation Error', 'Select a collocation location.'); return; }
+        if (!collocationStart || !collocationEnd) { showAlert('Validation Error', 'Enter collocation start and end dates.'); return; }
+        if (new Date(collocationEnd) < new Date(collocationStart)) { showAlert('Validation Error', 'End date must be after start date.'); return; }
     }
 
     const sourceCommunities = new Set();
@@ -4391,6 +4620,9 @@ function executeBulkAction() {
         if (doStatus) {
             s.status = newStatuses;
         }
+        if (doCollocation) {
+            s.collocationDates = `${collocationLocation}, ${formatDate(collocationStart)} – ${formatDate(collocationEnd)}`;
+        }
         persistSensor(s);
     });
 
@@ -4398,13 +4630,28 @@ function executeBulkAction() {
         const parts = [];
         if (doMove) parts.push(`moved to ${toName}`);
         if (doStatus) parts.push(`status set to ${newStatuses.join(', ')}`);
+        if (doCollocation) parts.push(`collocation at ${collocationLocation}: ${formatDate(collocationStart)} – ${formatDate(collocationEnd)}`);
         const noteText = `Bulk action: ${sensorList} ${parts.join(' and ')}.${userNotes ? ' ' + userNotes : ''}`;
         const taggedComms = [...sourceCommunities];
         if (toCommunityId && !taggedComms.includes(toCommunityId)) taggedComms.push(toCommunityId);
+
+        // Create individual Collocation notes per sensor so getMostRecentCollocation works
+        if (doCollocation) {
+            sensorIds.forEach(sensorId => {
+                const s = sensors.find(x => x.id === sensorId);
+                const communityId = s?.community || '';
+                const collocText = `Collocation at ${collocationLocation}: ${formatDate(collocationStart)} – ${formatDate(collocationEnd)}.${userNotes ? ' ' + userNotes : ''}`;
+                createNote('Collocation', collocText, {
+                    sensors: [sensorId],
+                    communities: communityId ? [communityId] : [],
+                }, `${collocationLocation}|${collocationStart}|${collocationEnd}`);
+            });
+        }
+
         const note = {
             id: generateId('n'),
             date: eventDate,
-            type: doMove ? 'Movement' : 'Status Change',
+            type: doCollocation ? 'Audit' : (doMove ? 'Movement' : 'Status Change'),
             text: noteText,
             createdBy: getCurrentUserName(), createdById: currentUserId,
             taggedSensors: sensorIds,
@@ -6806,7 +7053,7 @@ function generateAuditReport(auditId) {
     .report-section { break-inside: avoid; page-break-inside: avoid; }
 
     @media print {
-        @page { margin: 0.6in 0.65in 0.5in 0.65in; }
+        @page { margin: 1in; }
         body { margin: 0; max-width: none; padding: 0; }
         .no-print { display: none !important; }
         .print-only { display: block; }

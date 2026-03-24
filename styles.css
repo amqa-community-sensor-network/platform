@@ -318,29 +318,33 @@ body {
 .community-tag-filter-btn {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
-    border-radius: 100px;
-    font-size: 12.5px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 10px;
     font-weight: 600;
     cursor: pointer;
-    border: 1px solid var(--slate-200);
-    background: var(--surface);
+    border: none;
+    border-left: 3px solid var(--slate-300);
+    background: var(--slate-50, #f8fafc);
     color: var(--slate-500);
     transition: all 0.2s var(--ease-out);
     font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .community-tag-filter-btn:hover {
-    border-color: var(--navy-300);
-    color: var(--navy-600);
-    box-shadow: var(--shadow-sm);
+    border-left-color: #1B2A4A;
+    color: #1B2A4A;
+    background: var(--slate-100, #f1f5f9);
+    box-shadow: none;
 }
 
 .community-tag-filter-btn.active {
-    background: var(--navy-100);
-    border-color: var(--navy-400);
-    color: var(--navy-700);
-    box-shadow: 0 0 0 2px rgba(37, 99, 176, 0.12);
+    background: var(--slate-100, #f1f5f9);
+    border-left-color: #1B2A4A;
+    color: #1B2A4A;
+    box-shadow: none;
 }
 
 /* ===== CONTACT STATUS TOGGLE ===== */
@@ -974,7 +978,7 @@ body {
 }
 
 .community-row .community-type-badge {
-    font-size: 10px;
+    font-size: 9px;
     padding: 2px 8px;
 }
 
@@ -1151,23 +1155,26 @@ tr:last-child td {
 
 .community-type-badge {
     display: inline-block;
-    padding: 5px 14px;
-    border-radius: 100px;
-    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 10px;
     font-weight: 600;
-    background: var(--navy-100);
-    color: var(--navy-600);
-    letter-spacing: 0.02em;
+    background: var(--slate-50, #f8fafc);
+    color: #1B2A4A;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-left: 3px solid #1B2A4A;
 }
 
 .clickable-badge {
     cursor: pointer;
-    transition: all 0.2s var(--ease-out);
+    transition: all 0.15s var(--ease-out);
 }
 
 .clickable-badge:hover {
-    background: var(--navy-200);
-    transform: scale(1.05);
+    background: var(--slate-100, #f1f5f9);
+    transform: none;
+    border-left-color: #C9A84C;
 }
 
 .community-tags-container {
@@ -1185,24 +1192,26 @@ tr:last-child td {
 }
 
 .community-card-tags .community-type-badge {
-    font-size: 11px;
-    padding: 3px 10px;
+    font-size: 10px;
+    padding: 2px 8px;
 }
 
 .community-tag-edit {
     display: inline-block;
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
-    color: var(--gold-600);
+    color: #C9A84C;
     cursor: pointer;
-    padding: 4px 10px;
-    border-radius: 100px;
-    border: 1px dashed var(--gold-400);
-    transition: all 0.2s var(--ease-out);
+    padding: 3px 10px;
+    border-radius: 3px;
+    border: 1px dashed #C9A84C;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition: all 0.15s var(--ease-out);
 }
 
 .community-tag-edit:hover {
-    background: var(--gold-100);
+    background: rgba(201, 168, 76, 0.08);
     border-style: solid;
 }
 
@@ -1226,10 +1235,12 @@ tr:last-child td {
 
 .edit-tag-option {
     display: inline-block;
-    padding: 6px 14px;
-    border-radius: 100px;
-    font-size: 13px;
-    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     cursor: pointer;
     border: 1px solid var(--slate-200);
     background: var(--surface);
@@ -1239,14 +1250,16 @@ tr:last-child td {
 
 .edit-tag-option:hover {
     border-color: var(--navy-300);
-    color: var(--navy-600);
+    color: #1B2A4A;
+    border-left: 3px solid #1B2A4A;
 }
 
 .edit-tag-option.active {
-    background: var(--navy-100);
-    border-color: var(--navy-400);
-    color: var(--navy-700);
-    font-weight: 600;
+    background: var(--slate-50, #f8fafc);
+    border-color: var(--slate-200);
+    border-left: 3px solid #1B2A4A;
+    color: #1B2A4A;
+    font-weight: 700;
 }
 
 /* ===== BUTTONS ===== */
@@ -1640,6 +1653,14 @@ tr:last-child td {
 
 .editable-field:hover {
     color: var(--navy-600);
+}
+
+.editable-field:hover::before {
+    content: '\270E';
+    margin-right: 4px;
+    font-size: 13px;
+    color: var(--slate-400);
+    pointer-events: none;
 }
 
 .editable-field:hover::after {

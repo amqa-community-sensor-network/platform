@@ -327,12 +327,16 @@
             <div id="view-contact-detail" class="view">
                 <div class="view-header">
                     <h1 id="contact-detail-name"></h1>
-                    <button class="btn btn-sm" id="edit-contact-btn" onclick="openEditCurrentContact()">Edit Contact</button>
                 </div>
                 <div class="contact-info-card" id="contact-info-card"></div>
 
-                <div class="history-actions">
+                <div class="history-actions" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <button class="btn btn-primary" onclick="openContactCommModal()">+ Log Communication</button>
+                    <select id="contact-history-filter" onchange="filterContactHistory()" aria-label="Filter history type">
+                        <option value="">All History</option>
+                        <option value="Communication">Communications</option>
+                        <option value="_edits">Info Updates / Edits</option>
+                    </select>
                 </div>
                 <div id="contact-all-timeline" class="timeline"></div>
             </div>
@@ -353,7 +357,6 @@
                 <div id="tab-sensor-history" class="tab-content active">
                     <div class="history-actions" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                         <button class="btn btn-primary" onclick="openAddNoteModal(currentSensor, 'sensor')">+ Add Note</button>
-                        <button class="btn" onclick="openCollocationModal(currentSensor)" style="border-color:var(--navy-400);color:var(--navy-500)">+ Log Collocation</button>
                         <select id="sensor-history-filter" onchange="filterSensorHistory()" aria-label="Filter history type">
                             <option value="">All History</option>
                             <option value="_notes">Field Notes</option>
@@ -940,6 +943,25 @@
             <div class="form-group">
                 <label><input type="checkbox" id="bulk-do-status" onchange="toggleBulkFields()"> Change Status</label>
                 <div id="bulk-status-list" class="status-toggle-list" style="margin-top:6px;display:none"></div>
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" id="bulk-do-collocation" onchange="toggleBulkFields()"> Log as Collocation</label>
+                <div id="bulk-collocation-fields" style="margin-top:6px;display:none">
+                    <div class="form-group" style="margin-bottom:8px">
+                        <label style="font-size:12px;font-weight:600;color:var(--slate-500)">Collocation Location</label>
+                        <select id="bulk-collocation-location"></select>
+                    </div>
+                    <div style="display:flex;gap:10px">
+                        <div class="form-group" style="flex:1;margin-bottom:0">
+                            <label style="font-size:12px;font-weight:600;color:var(--slate-500)">Start Date</label>
+                            <input type="date" id="bulk-collocation-start">
+                        </div>
+                        <div class="form-group" style="flex:1;margin-bottom:0">
+                            <label style="font-size:12px;font-weight:600;color:var(--slate-500)">End Date</label>
+                            <input type="date" id="bulk-collocation-end">
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="form-group">
                 <label>Date of Event</label>
