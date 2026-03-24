@@ -4736,7 +4736,7 @@ function getMostRecentCollocation(sensorId) {
     const parts = (n.additionalInfo || '').split('|');
     const location = parts[0] || '';
     const start = parts[1] ? formatDate(parts[1]) : '';
-    const end = parts[2] ? formatDate(parts[2]) : '';
+    const end = parts[2] === 'TBD' ? 'TBD' : (parts[2] ? formatDate(parts[2]) : '');
     return { communityName: location, dateRange: `${start} \u2013 ${end}` };
 }
 
