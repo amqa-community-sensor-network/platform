@@ -4639,28 +4639,24 @@ function executeBulkAction() {
         const taggedComms = [...sourceCommunities];
         if (toCommunityId && !taggedComms.includes(toCommunityId)) taggedComms.push(toCommunityId);
 
-        // Create individual Collocation notes per sensor so getMostRecentCollocation works
-        if (doCollocation) {
-            sensorIds.forEach(sensorId => {
-                const s = sensors.find(x => x.id === sensorId);
-                const communityId = s?.community || '';
-                const collocText = `Collocation at ${collocationLocation}: ${formatDate(collocationStart)} – ${collocationEnd === 'TBD' ? 'TBD' : formatDate(collocationEnd)}.${userNotes ? ' ' + userNotes : ''}`;
-                createNote('Collocation', collocText, {
-                    sensors: [sensorId],
-                    communities: communityId ? [communityId] : [],
-                }, `${collocationLocation}|${collocationStart}|${collocationEnd}`);
-            });
-        }
+        // Determine note type based on what actions were taken
+        let noteType = 'General';
+        if (doCollocation) noteType = 'Collocation';
+        else if (doMove) noteType = 'Movement';
+        else if (doStatus) noteType = 'Status Change';
+
+        const additionalInfo = doCollocation ? `${collocationLocation}|${collocationStart}|${collocationEnd}` : '';
 
         const note = {
             id: generateId('n'),
             date: eventDate,
-            type: doCollocation ? 'Audit' : (doMove ? 'Movement' : 'Status Change'),
+            type: noteType,
             text: noteText,
             createdBy: getCurrentUserName(), createdById: currentUserId,
             taggedSensors: sensorIds,
             taggedCommunities: taggedComms,
             taggedContacts: [],
+            additionalInfo,
         };
         notes.push(note); persistNote(note);
     }
