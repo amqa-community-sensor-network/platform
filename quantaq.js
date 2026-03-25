@@ -86,6 +86,7 @@ async function runQuantAQCheck() {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + token,
+                'apikey': SUPABASE_ANON_KEY,
                 'Content-Type': 'application/json',
             },
             body: '{}',
