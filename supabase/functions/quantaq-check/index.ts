@@ -168,7 +168,17 @@ function timeSinceStr(dateStr: string): string {
 
 // --- Main Handler ---
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     console.log("[QuantAQ Check] Starting...");
 
@@ -456,7 +466,7 @@ Deno.serve(async (req: Request) => {
     console.log("[QuantAQ Check] Complete:", JSON.stringify(summary));
 
     return new Response(JSON.stringify(summary), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (err) {
@@ -467,7 +477,7 @@ Deno.serve(async (req: Request) => {
         error: err instanceof Error ? err.message : String(err),
       }),
       {
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
       }
     );
