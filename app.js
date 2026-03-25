@@ -4445,13 +4445,38 @@ async function confirmMfaToggle(enabled, checkbox) {
 }
 
 async function resetMfaSetup() {
-    showConfirm('Reset MFA', 'This will remove your current authenticator setup. You will need to set up a new authenticator app on your next sign-in.<br><br>Are you sure?', async () => {
+    showConfirm('Reset MFA', 'This will remove your current authenticator setup. You will need to set up a new authenticator app on your next sign-in.<br><br>Enter your 6-digit authenticator code to confirm:', async () => {
+        // Prompt for MFA code to elevate to AAL2 (required for unenroll)
+        const code = prompt('Enter your 6-digit authenticator code:');
+        if (!code || code.length !== 6) {
+            showAlert('MFA Reset Cancelled', 'A valid 6-digit code is required to reset MFA.');
+            return;
+        }
+
         try {
             const { data: factors } = await supa.auth.mfa.listFactors();
             const totp = factors?.totp?.find(f => f.status === 'verified');
-            if (totp) {
-                await supa.auth.mfa.unenroll({ factorId: totp.id });
+            if (!totp) {
+                showAlert('No MFA Found', 'No active authenticator was found on your account.');
+                return;
             }
+
+            // Elevate to AAL2 first
+            const { data: challenge, error: challengeErr } = await supa.auth.mfa.challenge({ factorId: totp.id });
+            if (challengeErr) { showAlert('Error', challengeErr.message); return; }
+            const { error: verifyErr } = await supa.auth.mfa.verify({ factorId: totp.id, challengeId: challenge.id, code });
+            if (verifyErr) {
+                showAlert('Invalid Code', 'The code was incorrect. MFA was not reset.');
+                return;
+            }
+
+            // Now at AAL2 — unenroll
+            const { error: unenrollErr } = await supa.auth.mfa.unenroll({ factorId: totp.id });
+            if (unenrollErr) {
+                showAlert('Error', 'Failed to reset MFA: ' + unenrollErr.message);
+                return;
+            }
+
             showAlert('MFA Reset', 'Your authenticator has been removed. You will be prompted to set up a new one on your next sign-in.');
             await renderMfaSettings();
         } catch (err) {
