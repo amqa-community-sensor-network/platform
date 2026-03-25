@@ -1,0 +1,278 @@
+/* ===== DASHBOARD STAT BAR ===== */
+.dash-stat-bar {
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 10px;
+    padding: 12px 8px;
+    margin-bottom: 4px;
+}
+.dash-stat-bar-item {
+    flex: 1;
+    text-align: center;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+.dash-stat-bar-item:hover { background: var(--slate-50); }
+.dash-stat-bar-value {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--navy-500);
+    line-height: 1.2;
+}
+.dash-stat-bar-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--slate-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+.dash-stat-bar-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--slate-200);
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .dash-stat-bar { flex-wrap: wrap; gap: 4px; }
+    .dash-stat-bar-divider { display: none; }
+    .dash-stat-bar-item { min-width: 30%; }
+}
+
+/* ===== QUANTAQ INTEGRATION STYLES ===== */
+
+/* Dashboard Card */
+.quantaq-card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 10px;
+    padding: 20px;
+}
+.quantaq-card.has-issues {
+    border-left: 4px solid #dc2626;
+}
+.quantaq-card.all-clear {
+    border-left: 4px solid #16a34a;
+}
+.quantaq-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+.quantaq-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--navy-500);
+    margin: 0;
+}
+.quantaq-card-subtitle {
+    font-size: 11px;
+    color: var(--slate-400);
+    margin-top: 2px;
+}
+.quantaq-counts {
+    display: flex;
+    gap: 12px;
+    margin: 12px 0;
+}
+.quantaq-count {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 8px;
+    min-width: 70px;
+}
+.quantaq-count { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent; }
+.quantaq-count:hover { transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.quantaq-count.all { background: var(--slate-100); }
+.quantaq-count.offline { background: #fee2e2; }
+.quantaq-count.pm { background: #fef3c7; }
+.quantaq-count.gas { background: #ede9fe; }
+.quantaq-count.sd { background: #fee2e2; }
+.quantaq-count.active-filter { border-color: var(--navy-500); box-shadow: 0 2px 8px rgba(27,42,74,0.15); }
+.quantaq-count-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy-500);
+}
+.quantaq-count-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.quantaq-new-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: #dc2626;
+    margin: 4px 0;
+}
+.quantaq-resolved-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: #16a34a;
+    margin: 4px 0;
+}
+.quantaq-all-clear {
+    text-align: center;
+    padding: 20px;
+    color: #16a34a;
+}
+.quantaq-all-clear p {
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 6px;
+}
+
+/* Alerts View */
+.quantaq-summary-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+}
+.quantaq-summary-card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+.quantaq-summary-num {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--navy-500);
+}
+.quantaq-summary-num.alert { color: #dc2626; }
+.quantaq-summary-num.ok { color: #16a34a; }
+.quantaq-summary-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--slate-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+.quantaq-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--navy-500);
+    margin: 24px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--slate-200);
+}
+
+/* Alert Cards */
+.quantaq-alert-card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.quantaq-alert-card.new {
+    border-left: 4px solid #dc2626;
+}
+.quantaq-alert-card.resolved {
+    opacity: 0.7;
+    border-left: 4px solid #16a34a;
+}
+.quantaq-alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--slate-50);
+    border-bottom: 1px solid var(--slate-100);
+}
+.quantaq-alert-sn {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy-500);
+    cursor: pointer;
+}
+.quantaq-alert-sn:hover {
+    text-decoration: underline;
+}
+.quantaq-alert-community {
+    font-size: 12px;
+    color: var(--slate-400);
+}
+.quantaq-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+}
+.quantaq-badge-offline { background: #fee2e2; color: #dc2626; }
+.quantaq-badge-pm { background: #fef3c7; color: #92400e; }
+.quantaq-badge-gas { background: #ede9fe; color: #6d28d9; }
+.quantaq-badge-sd { background: #fee2e2; color: #dc2626; }
+.quantaq-badge-resolved { background: #dcfce7; color: #16a34a; }
+
+.quantaq-new-tag {
+    display: inline-block;
+    background: #dc2626;
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    letter-spacing: 0.5px;
+}
+.quantaq-alert-body {
+    padding: 12px 16px;
+}
+.quantaq-alert-detail {
+    font-size: 13px;
+    color: var(--slate-600);
+}
+.quantaq-alert-meta {
+    font-size: 11px;
+    color: var(--slate-400);
+    margin-top: 4px;
+}
+.quantaq-alert-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px 12px;
+}
+.quantaq-note {
+    background: var(--slate-50);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--slate-600);
+    margin-top: 8px;
+    line-height: 1.5;
+}
+.quantaq-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--slate-400);
+}
+
+@media (max-width: 768px) {
+    .quantaq-summary-row {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .quantaq-counts {
+        flex-wrap: wrap;
+    }
+}

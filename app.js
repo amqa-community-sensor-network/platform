@@ -897,6 +897,7 @@ function showView(viewName) {
     if (viewName === 'settings') renderSettings();
     if (viewName === 'service') renderServiceView();
     if (viewName === 'audits') renderAuditsView();
+    if (viewName === 'quantaq-alerts' && typeof renderQuantAQAlertsView === 'function') renderQuantAQAlertsView();
 
     saveLastView('view', viewName);
 }
@@ -907,33 +908,49 @@ function renderDashboard() {
     const onlineCount = sensors.filter(s => getStatusArray(s).includes('Online')).length;
     const issueCount = getIssueSensorCount();
     const communityCount = COMMUNITIES.filter(c => !isChildCommunity(c.id) && !isCommunityDeactivated(c.id)).length;
+    const activeTickets = getActiveTicketCount();
+    const activeAudits = audits.filter(a => a.status === 'Scheduled' || a.status === 'In Progress').length;
 
+    // Last check time
+    const lastCheckEl = document.getElementById('dashboard-last-check');
+    if (lastCheckEl && typeof quantaqLastCheck !== 'undefined' && quantaqLastCheck) {
+        lastCheckEl.textContent = 'Last QuantAQ check: ' + new Date(quantaqLastCheck).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } else if (lastCheckEl) {
+        lastCheckEl.textContent = 'No QuantAQ check has been run yet';
+    }
+
+    // Compact stat bar
     document.getElementById('dashboard-summary').innerHTML = `
-        <div class="dash-stat" onclick="showView('all-sensors')">
-            <div class="dash-stat-value">${totalSensors}</div>
-            <div class="dash-stat-label">Total Sensors</div>
-        </div>
-        <div class="dash-stat" onclick="sensorTagFilter=''; showView('all-sensors')">
-            <div class="dash-stat-value">${onlineCount}</div>
-            <div class="dash-stat-label">Online</div>
-        </div>
-        <div class="dash-stat ${issueCount > 0 ? 'dash-stat-issue' : ''}" onclick="filterSensorsByTag('Issue Sensors')">
-            <div class="dash-stat-value">${issueCount}</div>
-            <div class="dash-stat-label">Issues</div>
-        </div>
-        <div class="dash-stat" onclick="showView('communities')">
-            <div class="dash-stat-value">${communityCount}</div>
-            <div class="dash-stat-label">Communities</div>
-        </div>
-        <div class="dash-stat" onclick="showView('service')">
-            <div class="dash-stat-value">${getActiveTicketCount()}</div>
-            <div class="dash-stat-label">Service Tickets</div>
-        </div>
-        <div class="dash-stat" onclick="showView('audits')">
-            <div class="dash-stat-value">${audits.filter(a => a.status === 'Scheduled' || a.status === 'In Progress').length}</div>
-            <div class="dash-stat-label">Active Audits</div>
+        <div class="dash-stat-bar">
+            <div class="dash-stat-bar-item" onclick="showView('all-sensors')">
+                <span class="dash-stat-bar-value">${totalSensors}</span>
+                <span class="dash-stat-bar-label">Sensors</span>
+            </div>
+            <div class="dash-stat-bar-divider"></div>
+            <div class="dash-stat-bar-item" onclick="sensorTagFilter=''; showView('all-sensors')">
+                <span class="dash-stat-bar-value" style="color:#16a34a">${onlineCount}</span>
+                <span class="dash-stat-bar-label">Online</span>
+            </div>
+            <div class="dash-stat-bar-divider"></div>
+            <div class="dash-stat-bar-item" onclick="showView('communities')">
+                <span class="dash-stat-bar-value">${communityCount}</span>
+                <span class="dash-stat-bar-label">Communities</span>
+            </div>
+            <div class="dash-stat-bar-divider"></div>
+            <div class="dash-stat-bar-item" onclick="showView('service')">
+                <span class="dash-stat-bar-value">${activeTickets}</span>
+                <span class="dash-stat-bar-label">Service Tickets</span>
+            </div>
+            <div class="dash-stat-bar-divider"></div>
+            <div class="dash-stat-bar-item" onclick="showView('audits')">
+                <span class="dash-stat-bar-value">${activeAudits}</span>
+                <span class="dash-stat-bar-label">Active Audits</span>
+            </div>
         </div>
     `;
+
+    // Render QuantAQ alerts section
+    if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
 }
 
 // ===== COMMUNITIES LIST VIEW =====

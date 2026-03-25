@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ADEC Community Sensor Network Tracker</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="quantaq.css">
 </head>
 <body>
     <a href="#main-content" class="skip-nav">Skip to main content</a>
@@ -99,6 +100,7 @@
                         <span class="sensor-toggle-arrow community-toggle-arrow" title="Filter by tag">&#9660;</span>
                     </a>
                     <ul class="community-list" id="sensor-tag-list"></ul>
+                    <a href="#" class="sidebar-sub-item" onclick="event.preventDefault(); showView('quantaq-alerts')">&#9888; QuantAQ Alerts <span style="opacity:0.8" id="sidebar-quantaq-count"></span></a>
                     <a href="#" class="sidebar-sub-item" onclick="event.preventDefault(); showView('audits')">&#8860; Audits <span style="opacity:0.8" id="sidebar-audit-count"></span></a>
                     <a href="#" class="sidebar-sub-item" onclick="event.preventDefault(); showView('service')">&#9888; Quant Service Tickets <span style="opacity:0.8" id="sidebar-service-count"></span></a>
                 </li>
@@ -139,13 +141,16 @@
             <div id="back-button" class="back-button" style="display:none" onclick="goBack()" role="button" aria-label="Go back">&#8592; Back</div>
             <!-- Dashboard View -->
             <div id="view-dashboard" class="view active">
+                <div id="dashboard-header" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+                    <div>
+                        <h1 style="font-size:22px;color:var(--navy-500);margin-bottom:2px">Dashboard</h1>
+                        <p id="dashboard-last-check" style="font-size:12px;color:var(--slate-400)"></p>
+                    </div>
+                    <button class="btn btn-primary" onclick="runQuantAQCheck()" id="dashboard-check-btn">Run QuantAQ Check</button>
+                </div>
                 <div class="dashboard-summary" id="dashboard-summary"></div>
-                <iframe
-                    src="https://experience.arcgis.com/experience/8655256b056a48f6a19788d43cdab30f"
-                    class="map-iframe-full"
-                    title="AK Sensor Network Map"
-                    allowfullscreen>
-                </iframe>
+                <span id="quantaq-status" style="font-size:12px;color:var(--slate-400);display:block;margin:8px 0"></span>
+                <div id="dashboard-alerts-section"></div>
             </div>
 
             <!-- All Sensors View -->
@@ -205,6 +210,14 @@
                     </label>
                 </div>
                 <div id="service-pipeline" class="service-pipeline"></div>
+            </div>
+
+            <!-- QuantAQ Alerts View -->
+            <div id="view-quantaq-alerts" class="view">
+                <div class="view-header">
+                    <h1>QuantAQ Sensor Alerts</h1>
+                </div>
+                <div id="quantaq-alerts-content"></div>
             </div>
 
             <!-- Audits View -->
@@ -1190,6 +1203,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3/dist/chartjs-plugin-annotation.min.js"></script>
     <script src="supabase-client.js"></script>
     <script src="app.js"></script>
+    <script src="quantaq.js"></script>
     <script>
     // Safety net: if nothing is visible after 30 seconds, show login with error
     setTimeout(function() {
