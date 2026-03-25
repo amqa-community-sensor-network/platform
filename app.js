@@ -5336,7 +5336,7 @@ function advanceTicketStatus(ticketId) {
     ticket.status = newStatus;
     persistServiceTicketUpdate(ticketId, { status: newStatus });
 
-    const sensorStatusMap = { 'At Quant': ['Service at Quant'] };
+    const sensorStatusMap = { 'Shipped to Quant': ['Shipped to Quant'], 'At Quant': ['Service at Quant'], 'Shipped from Quant': ['Shipped from Quant'] };
     if (sensorStatusMap[newStatus]) {
         const s = sensors.find(x => x.id === ticket.sensorId);
         if (s) {
@@ -5363,11 +5363,11 @@ function revertTicketStatus(ticketId) {
     persistServiceTicketUpdate(ticketId, { status: newStatus });
 
     // Restore sensor status to match the reverted-to step
-    const sensorStatusMap = { 'At Quant': ['Service at Quant'] };
+    const sensorStatusMap = { 'Shipped to Quant': ['Shipped to Quant'], 'At Quant': ['Service at Quant'], 'Shipped from Quant': ['Shipped from Quant'] };
     const s = sensors.find(x => x.id === ticket.sensorId);
     if (s) {
         // Strip all service-related statuses, then apply what the new status implies
-        const serviceStatuses = ['Service at Quant'];
+        const serviceStatuses = ['Shipped to Quant', 'Service at Quant', 'Shipped from Quant'];
         const cleaned = getStatusArray(s).filter(st => !serviceStatuses.includes(st));
         if (sensorStatusMap[newStatus]) {
             s.status = [...cleaned, ...sensorStatusMap[newStatus]];
@@ -5403,7 +5403,7 @@ async function deleteServiceTicket(ticketId) {
         // Clean up sensor service statuses
         const s = sensors.find(x => x.id === ticket.sensorId);
         if (s) {
-            const serviceStatuses = ['Quant Ticket in Progress', 'Service at Quant'];
+            const serviceStatuses = ['Quant Ticket in Progress', 'Shipped to Quant', 'Service at Quant', 'Shipped from Quant'];
             const cleaned = getStatusArray(s).filter(st => !serviceStatuses.includes(st));
             s.status = cleaned.length > 0 ? cleaned : ['Online'];
             persistSensor(s);
