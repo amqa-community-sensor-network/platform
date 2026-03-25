@@ -4072,13 +4072,16 @@ async function renderAllowedUsers(currentEmail) {
         const deleteBtn = isAdmin && !isYou
             ? `<button class="btn btn-sm" style="color:#e11d48;border-color:#fecdd3;font-size:11px;font-weight:600" onclick="permanentlyDeleteUser('${row.id}', '${escapeHtml(row.email).replace(/'/g, "\\&#39;")}')">Delete</button>`
             : '';
+        const resetMfaBtn = isAdmin && !isYou
+            ? `<button class="btn btn-sm" style="font-size:11px" onclick="adminResetMfa('${escapeHtml(row.email).replace(/'/g, "\\&#39;")}')">Reset MFA</button>`
+            : '';
         return `<div class="settings-user-row">
             <span>
                 <span class="settings-user-email">${escapeHtml(row.email)}</span>
                 ${roleBadge}
                 ${isYou ? '<span class="settings-user-you">(you)</span>' : ''}
             </span>
-            <span style="display:flex;gap:6px;align-items:center">${roleToggle}${archiveBtn}${deleteBtn}</span>
+            <span style="display:flex;gap:6px;align-items:center">${roleToggle}${resetMfaBtn}${archiveBtn}${deleteBtn}</span>
         </div>`;
     }).join('') || '<p style="color:var(--slate-400);font-size:13px">No active users.</p>';
 
@@ -4399,8 +4402,7 @@ async function renderMfaSettings() {
     if (totp) {
         html += `<div style="background:var(--slate-50);border:1px solid var(--slate-200);border-radius:8px;padding:12px 16px;margin-bottom:16px">
             <p style="font-size:13px;color:var(--slate-600)">Your authenticator is set up and active.</p>
-            <button class="btn btn-sm" style="margin-top:8px;color:#dc2626;border-color:#fecdd3" onclick="resetMfaSetup()">Reset MFA</button>
-            <p style="font-size:11px;color:var(--slate-400);margin-top:6px">Use this if you lost access to your authenticator app and need to set up a new one.</p>
+            <p style="font-size:11px;color:var(--slate-400);margin-top:6px">Lost access to your authenticator app? Contact an administrator to reset your MFA.</p>
         </div>`;
     } else {
         html += `<div style="background:#fff8e8;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:16px">
@@ -4444,41 +4446,13 @@ async function confirmMfaToggle(enabled, checkbox) {
     });
 }
 
-async function resetMfaSetup() {
-    showConfirm('Reset MFA', 'This will remove your current authenticator setup. You will need to set up a new authenticator app on your next sign-in.<br><br>Enter your 6-digit authenticator code to confirm:', async () => {
-        // Prompt for MFA code to elevate to AAL2 (required for unenroll)
-        const code = prompt('Enter your 6-digit authenticator code:');
-        if (!code || code.length !== 6) {
-            showAlert('MFA Reset Cancelled', 'A valid 6-digit code is required to reset MFA.');
-            return;
-        }
-
+async function adminResetMfa(email) {
+    if (currentUserRole !== 'admin') { showAlert('Access Denied', 'Only admins can reset MFA.'); return; }
+    showConfirm('Reset MFA', `Reset MFA for <strong>${escapeHtml(email)}</strong>?<br><br>Their authenticator will be removed and they will need to set up a new one on their next sign-in.`, async () => {
         try {
-            const { data: factors } = await supa.auth.mfa.listFactors();
-            const totp = factors?.totp?.find(f => f.status === 'verified');
-            if (!totp) {
-                showAlert('No MFA Found', 'No active authenticator was found on your account.');
-                return;
-            }
-
-            // Elevate to AAL2 first
-            const { data: challenge, error: challengeErr } = await supa.auth.mfa.challenge({ factorId: totp.id });
-            if (challengeErr) { showAlert('Error', challengeErr.message); return; }
-            const { error: verifyErr } = await supa.auth.mfa.verify({ factorId: totp.id, challengeId: challenge.id, code });
-            if (verifyErr) {
-                showAlert('Invalid Code', 'The code was incorrect. MFA was not reset.');
-                return;
-            }
-
-            // Now at AAL2 — unenroll
-            const { error: unenrollErr } = await supa.auth.mfa.unenroll({ factorId: totp.id });
-            if (unenrollErr) {
-                showAlert('Error', 'Failed to reset MFA: ' + unenrollErr.message);
-                return;
-            }
-
-            showAlert('MFA Reset', 'Your authenticator has been removed. You will be prompted to set up a new one on your next sign-in.');
-            await renderMfaSettings();
+            const { error } = await supa.rpc('admin_reset_mfa', { target_email: email });
+            if (error) { showAlert('Error', error.message); return; }
+            showAlert('MFA Reset', `MFA has been reset for ${email}. They will be prompted to set up a new authenticator on their next sign-in.`);
         } catch (err) {
             showAlert('Error', 'Failed to reset MFA: ' + err.message);
         }
