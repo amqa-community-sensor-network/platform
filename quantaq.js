@@ -143,8 +143,32 @@ function renderCheckButtons() {
     const dashBtn = document.getElementById('dashboard-check-btn');
     if (dashBtn) {
         dashBtn.disabled = quantaqChecking;
-        dashBtn.textContent = quantaqChecking ? 'Checking...' : 'Run QuantAQ Check';
+        dashBtn.textContent = quantaqChecking ? 'Checking...' : 'Run Check Now';
     }
+    const nextCheckEl = document.getElementById('dashboard-next-check');
+    if (nextCheckEl) {
+        nextCheckEl.textContent = 'Next auto-check: ' + getNextCheckTime();
+    }
+}
+
+function getNextCheckTime() {
+    const now = new Date();
+    // Find next weekday at 6:00 AM AKST (UTC-9 = 15:00 UTC)
+    const candidate = new Date(now);
+    // Start from tomorrow if today's check already passed
+    // Check time is 3pm UTC = 6am AKST
+    candidate.setUTCHours(15, 0, 0, 0);
+    if (now >= candidate) {
+        candidate.setUTCDate(candidate.getUTCDate() + 1);
+    }
+    // Skip weekends (0=Sun, 6=Sat)
+    while (candidate.getUTCDay() === 0 || candidate.getUTCDay() === 6) {
+        candidate.setUTCDate(candidate.getUTCDate() + 1);
+    }
+    return candidate.toLocaleString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+    });
 }
 
 // ===== DASHBOARD ALERTS (inline on dashboard) =====
@@ -153,12 +177,8 @@ function renderDashboardAlerts() {
     const container = document.getElementById('dashboard-alerts-section');
     if (!container) return;
 
-    // Update check button state
-    const btn = document.getElementById('dashboard-check-btn');
-    if (btn) {
-        btn.disabled = quantaqChecking;
-        btn.textContent = quantaqChecking ? 'Checking...' : 'Run QuantAQ Check';
-    }
+    // Update check button and next-check time
+    renderCheckButtons();
 
     // Update last check time
     const lastCheckEl = document.getElementById('dashboard-last-check');
