@@ -70,7 +70,14 @@ async function initQuantAQ() {
 async function runQuantAQCheck() {
     if (quantaqChecking) return;
     quantaqChecking = true;
-    updateQuantAQStatus('Running QuantAQ check — this may take 1–2 minutes...');
+    let dots = 0;
+    const progressInterval = setInterval(() => {
+        dots = (dots + 1) % 4;
+        const elapsed = Math.floor((Date.now() - checkStartTime) / 1000);
+        updateQuantAQStatus(`Checking ~71 sensors with QuantAQ${'.'.repeat(dots)}  (${elapsed}s elapsed)`);
+    }, 500);
+    const checkStartTime = Date.now();
+    updateQuantAQStatus('Checking ~71 sensors with QuantAQ...');
     renderCheckButtons();
 
     try {
@@ -108,6 +115,7 @@ async function runQuantAQCheck() {
         console.error('[QuantAQ] Check failed:', err);
         updateQuantAQStatus('Check failed: ' + err.message);
     } finally {
+        clearInterval(progressInterval);
         quantaqChecking = false;
         renderCheckButtons();
     }
