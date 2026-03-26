@@ -358,7 +358,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // --- Insert new alerts ---
+    // --- Insert new alerts and create event history notes ---
     if (newAlertsToInsert.length > 0) {
       const { error: insertErr } = await supabase
         .from("quantaq_alerts")
@@ -369,6 +369,30 @@ Deno.serve(async (req: Request) => {
         console.log(
           `[QuantAQ Check] Inserted ${newAlertsToInsert.length} new alerts`
         );
+
+        // Create event history notes for each new alert
+        for (const alert of newAlertsToInsert) {
+          const sensorComm = sensorRows?.find((s: { id: string }) => s.id === alert.sensor_sn);
+          const communityId = sensorComm?.community_id || '';
+
+          const { data: noteData } = await supabase.from("notes").insert({
+            date: now,
+            type: 'Issue',
+            text: `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn}. ${alert.detail || ''}`,
+            created_by: 'QuantAQ System',
+            created_by_id: null,
+            additional_info: '',
+          }).select('id');
+
+          const noteId = noteData?.[0]?.id;
+          if (noteId) {
+            const tags = [
+              { note_id: noteId, tag_type: 'sensor', tag_id: alert.sensor_sn },
+            ];
+            if (communityId) tags.push({ note_id: noteId, tag_type: 'community', tag_id: communityId });
+            await supabase.from("note_tags").insert(tags);
+          }
+        }
       }
     }
 
@@ -399,8 +423,31 @@ Deno.serve(async (req: Request) => {
           `[QuantAQ Check] Resolved ${resolveIds.length} alerts`
         );
 
-        // For resolved alerts, try to clear the status on the sensor
+        // For resolved alerts: clear sensor status and create event history note
         for (const alert of alertsToResolve) {
+          // Get sensor's community for tagging
+          const sensorComm = sensorRows?.find((s: { id: string }) => s.id === alert.sensor_sn);
+          const communityId = sensorComm?.community_id || '';
+
+          // Create a resolved event note in history
+          await supabase.from("notes").insert({
+            date: now,
+            type: 'Issue',
+            text: `QuantAQ Auto-Resolved: ${alert.issue_type} on ${alert.sensor_sn} has cleared.`,
+            created_by: 'QuantAQ System',
+            created_by_id: null,
+            additional_info: '',
+          }).then(async (result) => {
+            const noteId = result.data?.[0]?.id;
+            if (noteId) {
+              const tags = [
+                { note_id: noteId, tag_type: 'sensor', tag_id: alert.sensor_sn },
+              ];
+              if (communityId) tags.push({ note_id: noteId, tag_type: 'community', tag_id: communityId });
+              await supabase.from("note_tags").insert(tags);
+            }
+          });
+
           if (alert.issue_type !== "Lost Connection") {
             // Check if this sensor has any OTHER active alerts of the same type
             const otherActive = (existingAlerts || []).find(
@@ -429,6 +476,8 @@ Deno.serve(async (req: Request) => {
                   .from("sensors")
                   .update({ status: finalStatuses, updated_at: now })
                   .eq("id", alert.sensor_sn);
+
+                console.log(`[QuantAQ Check] Resolved ${alert.issue_type} on ${alert.sensor_sn}, status now: ${finalStatuses.join(', ')}`);
               }
             }
           }

@@ -37,6 +37,7 @@ async function loadQuantAQAlerts() {
             lastChecked: row.last_checked,
             acknowledgedBy: row.acknowledged_by,
             notes: row.notes || [],
+            eventNoteId: (row.notes || []).find(n => n.noteId)?.noteId || null,
         }));
 
         console.log(`[QuantAQ] Loaded ${quantaqAlerts.length} alerts from database`);
@@ -412,10 +413,12 @@ function renderQuantAQAlertList(alerts, isNew) {
                 <p class="quantaq-alert-meta">Detected: ${detectedStr}${duration ? ` (${duration})` : ''}${isResolved ? ` · Resolved: ${new Date(a.resolvedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}</p>
                 ${notesHtml}
             </div>
-            ${!isResolved ? `<div class="quantaq-alert-actions">
-                <button class="btn btn-sm" onclick="addQuantAQNote('${a.id}')">Add Note</button>
-                <button class="btn btn-sm" onclick="acknowledgeQuantAQAlert('${a.id}')">${a.acknowledgedBy ? 'Acknowledged by ' + escapeHtml(a.acknowledgedBy) : 'Acknowledge'}</button>
-            </div>` : ''}
+            <div class="quantaq-alert-actions">
+                ${!isResolved ? `<button class="btn btn-sm" onclick="addQuantAQEventNote('${a.id}')">Add Event Note</button>` : ''}
+                ${a.eventNoteId ? `<button class="btn btn-sm" onclick="showSensorDetail('${a.sensorSn}')">Open Event Note</button>` : ''}
+                ${!isResolved && !a.acknowledgedBy ? `<button class="btn btn-sm" style="color:var(--slate-400);border-color:var(--slate-200)" onclick="dismissQuantAQAlert('${a.id}')">Dismiss</button>` : ''}
+                ${a.acknowledgedBy ? `<span style="font-size:11px;color:var(--slate-400)">Dismissed by ${escapeHtml(a.acknowledgedBy)}</span>` : ''}
+            </div>
         </div>`;
     }).join('');
 }
@@ -432,32 +435,17 @@ function filterQuantAQAlerts(type) {
 
 // ===== ALERT ACTIONS (persisted to database) =====
 
-async function acknowledgeQuantAQAlert(alertId) {
+async function dismissQuantAQAlert(alertId) {
     const alert = quantaqAlerts.find(a => a.id === alertId);
     if (!alert) return;
 
     const userName = currentUser || 'Unknown';
     alert.acknowledgedBy = userName;
-    alert.status = 'acknowledged';
 
-    // Persist to database
     try {
-        const { error } = await supa
-            .from('quantaq_alerts')
-            .update({
-                acknowledged_by: userName,
-                status: 'acknowledged',
-            })
-            .eq('id', alertId);
-
-        if (error) {
-            console.error('[QuantAQ] Failed to persist acknowledge:', error);
-            alert.status = 'active'; // revert on failure
-            alert.acknowledgedBy = null;
-        }
+        await supa.from('quantaq_alerts').update({ acknowledged_by: userName }).eq('id', alertId);
     } catch (err) {
-        console.error('[QuantAQ] Failed to persist acknowledge:', err);
-        alert.status = 'active';
+        console.error('[QuantAQ] Failed to dismiss:', err);
         alert.acknowledgedBy = null;
     }
 
@@ -465,37 +453,54 @@ async function acknowledgeQuantAQAlert(alertId) {
     renderDashboardAlerts();
 }
 
-async function addQuantAQNote(alertId) {
+async function addQuantAQEventNote(alertId) {
     const alert = quantaqAlerts.find(a => a.id === alertId);
     if (!alert) return;
 
-    const text = prompt('Add a note to this alert:');
+    const text = prompt('Add an event note for this alert:');
     if (!text || !text.trim()) return;
 
+    // Find the sensor and its community in the app
+    const sensor = sensors.find(s => s.id === alert.sensorSn);
+    const communityId = sensor?.community || '';
+
+    // Create an event history note tagged to the sensor and community
+    const noteText = `QuantAQ Auto-Flag: ${alert.issueType}. ${text.trim()}`;
+    const note = createNote('Issue', noteText, {
+        sensors: [alert.sensorSn],
+        communities: communityId ? [communityId] : [],
+        contacts: [],
+    });
+
+    // Store the note ID on the alert so we can link to it
     const noteEntry = {
         by: currentUser || 'Unknown',
         at: new Date().toISOString(),
         text: text.trim(),
+        noteId: note?.id || null,
     };
-
     alert.notes.push(noteEntry);
+    alert.eventNoteId = note?.id || null;
 
-    // Persist to database (notes is a JSONB array)
+    // Persist to quantaq_alerts
     try {
-        const { error } = await supa
-            .from('quantaq_alerts')
-            .update({ notes: alert.notes })
-            .eq('id', alertId);
-
-        if (error) {
-            console.error('[QuantAQ] Failed to persist note:', error);
-            alert.notes.pop(); // revert on failure
-        }
+        await supa.from('quantaq_alerts').update({
+            notes: alert.notes,
+        }).eq('id', alertId);
     } catch (err) {
-        console.error('[QuantAQ] Failed to persist note:', err);
-        alert.notes.pop();
+        console.error('[QuantAQ] Failed to persist event note:', err);
+    }
+
+    // Auto-update sensor status if not already set
+    if (sensor && alert.issueType !== 'Lost Connection') {
+        const currentStatuses = getStatusArray(sensor);
+        if (!currentStatuses.includes(alert.issueType)) {
+            sensor.status = [...currentStatuses.filter(s => s !== 'Online'), alert.issueType];
+            persistSensor(sensor);
+        }
     }
 
     renderQuantAQAlertsView();
     renderDashboardAlerts();
+    buildSensorSidebar();
 }
