@@ -495,7 +495,32 @@ async function dismissQuantAQAlert(alertId) {
     if (!alert) return;
 
     const userName = currentUser || 'Unknown';
+    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+    // Prompt for optional note
+    const noteText = prompt('Add a note (optional — leave blank to skip):');
+
     alert.acknowledgedBy = userName;
+
+    // Add dismiss entry to the auto-flag event note
+    const eventNote = notes.find(n =>
+        n.text && n.text.includes('QuantAQ Auto-Flag') &&
+        n.text.includes(alert.issueType) &&
+        n.taggedSensors && n.taggedSensors.includes(alert.sensorSn)
+    );
+
+    if (eventNote) {
+        let dismissLine = `\n— Dismissed by ${userName} (${timestamp})`;
+        if (noteText && noteText.trim()) {
+            dismissLine += `: ${noteText.trim()}`;
+        }
+        eventNote.text += dismissLine;
+        try {
+            await supa.from('notes').update({ text: eventNote.text }).eq('id', eventNote.id);
+        } catch (err) {
+            console.error('[QuantAQ] Failed to update event note:', err);
+        }
+    }
 
     try {
         await supa.from('quantaq_alerts').update({ acknowledged_by: userName }).eq('id', alertId);
