@@ -306,6 +306,8 @@ Deno.serve(async (req: Request) => {
           sensor_sn: sn, sensor_model: device.model || null, community_name: communityName,
           issue_type: "Lost Connection", detail, status: "active", is_new: true, detected_at: now, last_checked: now, notes: [],
         });
+        // Also update sensor status
+        sensorStatusUpdates.push({ sn, statuses: ['Lost Connection'] });
       }
     }
 
@@ -372,25 +374,34 @@ Deno.serve(async (req: Request) => {
 
         // Create event history notes for each new alert
         for (const alert of newAlertsToInsert) {
-          const sensorComm = sensorRows?.find((s: { id: string }) => s.id === alert.sensor_sn);
-          const communityId = sensorComm?.community_id || '';
+          try {
+            const sensorComm = sensorRows?.find((s: { id: string }) => s.id === alert.sensor_sn);
+            const communityId = sensorComm?.community_id || '';
 
-          const { data: noteData } = await supabase.from("notes").insert({
-            date: now,
-            type: 'Issue',
-            text: `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn}. ${alert.detail || ''}`,
-            created_by: 'QuantAQ System',
-            created_by_id: null,
-            additional_info: '',
-          }).select('id');
+            const { data: noteData, error: noteErr } = await supabase.from("notes").insert({
+              date: now,
+              type: 'Issue',
+              text: `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn}. ${alert.detail || ''}`,
+              created_by: null,
+              additional_info: '',
+            }).select('id');
 
-          const noteId = noteData?.[0]?.id;
-          if (noteId) {
-            const tags = [
-              { note_id: noteId, tag_type: 'sensor', tag_id: alert.sensor_sn },
-            ];
-            if (communityId) tags.push({ note_id: noteId, tag_type: 'community', tag_id: communityId });
-            await supabase.from("note_tags").insert(tags);
+            if (noteErr) {
+              console.error(`[QuantAQ Check] Failed to create note for ${alert.sensor_sn}:`, noteErr);
+              continue;
+            }
+
+            const noteId = noteData?.[0]?.id;
+            if (noteId) {
+              const tags: { note_id: string; tag_type: string; tag_id: string }[] = [
+                { note_id: noteId, tag_type: 'sensor', tag_id: alert.sensor_sn! },
+              ];
+              if (communityId) tags.push({ note_id: noteId, tag_type: 'community', tag_id: communityId });
+              await supabase.from("note_tags").insert(tags);
+              console.log(`[QuantAQ Check] Created event note for ${alert.sensor_sn}: ${alert.issue_type}`);
+            }
+          } catch (noteCreateErr) {
+            console.error(`[QuantAQ Check] Note creation error for ${alert.sensor_sn}:`, noteCreateErr);
           }
         }
       }
@@ -430,23 +441,27 @@ Deno.serve(async (req: Request) => {
           const communityId = sensorComm?.community_id || '';
 
           // Create a resolved event note in history
-          await supabase.from("notes").insert({
-            date: now,
-            type: 'Issue',
-            text: `QuantAQ Auto-Resolved: ${alert.issue_type} on ${alert.sensor_sn} has cleared.`,
-            created_by: 'QuantAQ System',
-            created_by_id: null,
-            additional_info: '',
-          }).then(async (result) => {
-            const noteId = result.data?.[0]?.id;
-            if (noteId) {
-              const tags = [
+          try {
+            const { data: resolveNoteData, error: resolveNoteErr } = await supabase.from("notes").insert({
+              date: now,
+              type: 'Issue',
+              text: `QuantAQ Auto-Resolved: ${alert.issue_type} on ${alert.sensor_sn} has cleared.`,
+              created_by: null,
+              additional_info: '',
+            }).select('id');
+
+            if (!resolveNoteErr && resolveNoteData?.[0]?.id) {
+              const noteId = resolveNoteData[0].id;
+              const tags: { note_id: string; tag_type: string; tag_id: string }[] = [
                 { note_id: noteId, tag_type: 'sensor', tag_id: alert.sensor_sn },
               ];
               if (communityId) tags.push({ note_id: noteId, tag_type: 'community', tag_id: communityId });
               await supabase.from("note_tags").insert(tags);
+              console.log(`[QuantAQ Check] Created resolved note for ${alert.sensor_sn}: ${alert.issue_type}`);
             }
-          });
+          } catch (resolveNoteCreateErr) {
+            console.error(`[QuantAQ Check] Resolve note error for ${alert.sensor_sn}:`, resolveNoteCreateErr);
+          }
 
           if (alert.issue_type !== "Lost Connection") {
             // Check if this sensor has any OTHER active alerts of the same type
