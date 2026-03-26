@@ -218,10 +218,10 @@ Deno.serve(async (req: Request) => {
       `[QuantAQ Check] ${(existingAlerts || []).length} existing active alerts`
     );
 
-    // --- Load sensor-to-community mapping from sensors table ---
+    // --- Load sensor data from app database ---
     const { data: sensorRows } = await supabase
       .from("sensors")
-      .select("id, community_id");
+      .select("id, community_id, status");
     const { data: communityRows } = await supabase
       .from("communities")
       .select("id, name");
@@ -232,11 +232,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const sensorCommunityMap: Record<string, string> = {};
+    const sensorStatusMap: Record<string, string[]> = {};
     for (const s of sensorRows || []) {
       if (s.community_id && communityMap[s.community_id]) {
         sensorCommunityMap[s.id] = communityMap[s.community_id];
       }
+      sensorStatusMap[s.id] = Array.isArray(s.status) ? s.status : [];
     }
+
+    // Statuses that mean the sensor is expected to be offline (not deployed)
+    const EXPECTED_OFFLINE_STATUSES = [
+      'Lab Storage', 'In Transit Between Audits', 'Service at Quant',
+      'Ready for Deployment', 'Shipped to Quant', 'Shipped from Quant',
+    ];
 
     // --- Fetch all QuantAQ devices ---
     const devices = await getAllDevices(quantaqApiKey);
@@ -272,12 +280,22 @@ Deno.serve(async (req: Request) => {
     const newAlertsToInsert: Partial<QuantAQAlert>[] = [];
     const sensorStatusUpdates: { sn: string; statuses: string[] }[] = [];
 
-    // --- Process offline devices (no API calls needed) ---
+    // --- Process offline devices ---
+    // Skip sensors with statuses that mean they're expected to be offline
+    let skippedExpectedOffline = 0;
     for (const { device, detail } of offlineDevices) {
       const sn = device.sn;
+      const appStatuses = sensorStatusMap[sn] || [];
+
+      // If sensor has a non-deployed status, it's expected to be offline — skip it
+      if (appStatuses.some(s => EXPECTED_OFFLINE_STATUSES.includes(s))) {
+        skippedExpectedOffline++;
+        continue;
+      }
+
       const communityName = sensorCommunityMap[sn] || device.city || "";
       const existing = (existingAlerts || []).find(
-        (a: QuantAQAlert) => a.sensor_sn === sn && a.issue_type === "Offline" && a.status === "active"
+        (a: QuantAQAlert) => a.sensor_sn === sn && a.issue_type === "Lost Connection" && a.status === "active"
       );
 
       if (existing) {
@@ -286,10 +304,12 @@ Deno.serve(async (req: Request) => {
       } else {
         newAlertsToInsert.push({
           sensor_sn: sn, sensor_model: device.model || null, community_name: communityName,
-          issue_type: "Offline", detail, status: "active", is_new: true, detected_at: now, last_checked: now, notes: [],
+          issue_type: "Lost Connection", detail, status: "active", is_new: true, detected_at: now, last_checked: now, notes: [],
         });
       }
     }
+
+    console.log(`[QuantAQ Check] Skipped ${skippedExpectedOffline} sensors (expected offline due to status)`);
 
     // --- Process online devices in large parallel batches (only these need raw data API calls) ---
     const BATCH_SIZE = 15;
@@ -381,7 +401,7 @@ Deno.serve(async (req: Request) => {
 
         // For resolved alerts, try to clear the status on the sensor
         for (const alert of alertsToResolve) {
-          if (alert.issue_type !== "Offline") {
+          if (alert.issue_type !== "Lost Connection") {
             // Check if this sensor has any OTHER active alerts of the same type
             const otherActive = (existingAlerts || []).find(
               (a: QuantAQAlert) =>

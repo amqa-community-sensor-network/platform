@@ -9,7 +9,7 @@ const QUANTAQ_OFFLINE_THRESHOLD_MIN = 60;
 let quantaqAlerts = [];
 let quantaqLastCheck = null;
 let quantaqChecking = false;
-let quantaqFilter = ''; // '' = all, or 'Offline', 'PM Sensor Issue', etc.
+let quantaqFilter = ''; // '' = all, or 'Lost Connection', 'PM Sensor Issue', etc.
 
 // ===== LOAD ALERTS FROM DATABASE =====
 
@@ -188,7 +188,7 @@ function renderDashboardAlerts() {
 
     const active = quantaqAlerts.filter(a => a.status === 'active');
     const newAlerts = active.filter(a => a.isNew);
-    const offline = active.filter(a => a.issueType === 'Offline');
+    const offline = active.filter(a => a.issueType === 'Lost Connection');
     const pmIssues = active.filter(a => a.issueType === 'PM Sensor Issue');
     const gasIssues = active.filter(a => a.issueType === 'Gaseous Sensor Issue');
     const sdIssues = active.filter(a => a.issueType === 'SD Card Issue');
@@ -210,7 +210,7 @@ function renderDashboardAlerts() {
             : '';
         html += `<div class="quantaq-counts" style="margin-bottom:16px">
             ${countCard(active, '', 'all', 'All Active')}
-            ${countCard(offline, 'Offline', 'offline', 'Offline')}
+            ${countCard(offline, 'Lost Connection', 'offline', 'Lost Connection')}
             ${countCard(pmIssues, 'PM Sensor Issue', 'pm', 'PM Issue')}
             ${countCard(gasIssues, 'Gaseous Sensor Issue', 'gas', 'Gas Issue')}
             ${countCard(sdIssues, 'SD Card Issue', 'sd', 'SD Card')}
@@ -293,7 +293,7 @@ function renderQuantAQAlertsView() {
     `;
 
     // Summary counts
-    const offline = active.filter(a => a.issueType === 'Offline');
+    const offline = active.filter(a => a.issueType === 'Lost Connection');
     const pmIssues = active.filter(a => a.issueType === 'PM Sensor Issue');
     const gasIssues = active.filter(a => a.issueType === 'Gaseous Sensor Issue');
     const sdIssues = active.filter(a => a.issueType === 'SD Card Issue');
@@ -338,7 +338,7 @@ function renderQuantAQAlertsView() {
 
 function renderQuantAQAlertList(alerts, isNew) {
     return alerts.map(a => {
-        const isOffline = a.issueType === 'Offline';
+        const isOffline = a.issueType === 'Lost Connection';
         const isResolved = a.status === 'resolved';
         const badgeClass = isResolved ? 'quantaq-badge-resolved'
             : isOffline ? 'quantaq-badge-offline'
