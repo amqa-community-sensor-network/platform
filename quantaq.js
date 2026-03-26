@@ -262,7 +262,7 @@ function renderDashboardAlerts() {
             html += `<p style="font-size:12px;color:var(--slate-400);margin-bottom:12px">Filtered by: <strong>${quantaqFilter || 'All'}</strong> <a href="#" onclick="event.preventDefault();filterQuantAQAlerts('')" style="color:var(--navy-400);margin-left:6px">Clear filter</a></p>`;
         }
         if (newAlerts.length > 0 && !quantaqFilter) html += `<p class="quantaq-new-badge">${newAlerts.length} new since last check</p>`;
-        if (resolved.length > 0 && !quantaqFilter) html += `<p class="quantaq-resolved-badge">${resolved.length} resolved since last check</p>`;
+        if (resolved.length > 0 && !quantaqFilter) html += `<p class="quantaq-resolved-badge"><a href="#quantaq-resolved-section" style="color:#16a34a;text-decoration:none" onclick="document.getElementById('quantaq-resolved-section')?.scrollIntoView({behavior:'smooth'})">${resolved.length} resolved since last check</a></p>`;
     }
 
     // Apply filter
@@ -285,7 +285,7 @@ function renderDashboardAlerts() {
 
     // Resolved
     if (filteredResolved.length > 0) {
-        html += `<h3 class="quantaq-section-title" style="color:#16a34a">Resolved (${filteredResolved.length})</h3>`;
+        html += `<h3 id="quantaq-resolved-section" class="quantaq-section-title" style="color:#16a34a">Resolved (${filteredResolved.length})</h3>`;
         html += renderQuantAQAlertList(filteredResolved, false);
     }
 
@@ -298,12 +298,6 @@ function renderDashboardAlerts() {
         </div>`;
     }
 
-    // View all link
-    if (active.length > 0) {
-        html += `<div style="text-align:center;margin-top:16px">
-            <button class="btn btn-primary" onclick="showView('quantaq-alerts')">View Full Alert Details</button>
-        </div>`;
-    }
 
     container.innerHTML = html;
 }
