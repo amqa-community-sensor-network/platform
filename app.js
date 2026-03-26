@@ -3197,7 +3197,7 @@ function renderTimeline(containerId, items) {
                     </div>
                     ${actions}
                 </div>
-                <div class="timeline-text">${renderNoteText(item.text)}${hasFullBody ? ' <small style="color:var(--navy-500)">(click to expand)</small>' : ''}</div>
+                <div class="timeline-text">${renderNoteText(item.text, isNote ? item.id : null)}${hasFullBody ? ' <small style="color:var(--navy-500)">(click to expand)</small>' : ''}</div>
                 ${additionalInfoHtml}
                 ${hasFullBody ? `<div class="timeline-text-full">${escapeHtml(item.fullBody)}</div>` : ''}
                 ${attribution}
@@ -3217,9 +3217,8 @@ function renderTimeline(containerId, items) {
     }).join('');
 }
 
-function renderNoteText(text) {
+function renderNoteText(text, noteId) {
     if (!text) return '';
-    // Check if this note has appended follow-up lines (QuantAQ pattern: \n— user (date): text)
     if (text.includes('\n—')) {
         const lines = text.split('\n');
         const mainText = [];
@@ -3234,19 +3233,74 @@ function renderNoteText(text) {
         let html = highlightMentions(escapeHtml(mainText.join('\n')));
         if (followUps.length > 0) {
             html += '<div class="timeline-followups">';
-            html += followUps.map(f => {
-                // Parse "User (Date): Text" pattern
+            html += followUps.map((f, idx) => {
                 const match = f.match(/^(.+?)\s*\((.+?)\):\s*(.+)$/);
+                const actions = noteId
+                    ? `<span class="followup-actions" onclick="event.stopPropagation()"><span class="followup-action-btn" onclick="editFollowUp('${noteId}', ${idx})" title="Edit">&#9998;</span><span class="followup-action-btn" onclick="deleteFollowUp('${noteId}', ${idx})" title="Delete">&#128465;</span></span>`
+                    : '';
                 if (match) {
-                    return `<div class="timeline-followup-entry"><strong>${escapeHtml(match[1])}</strong> <span class="timeline-followup-date">${escapeHtml(match[2])}</span><div class="timeline-followup-text">${highlightMentions(escapeHtml(match[3]))}</div></div>`;
+                    return `<div class="timeline-followup-entry"><div class="followup-header"><div><strong>${escapeHtml(match[1])}</strong> <span class="timeline-followup-date">${escapeHtml(match[2])}</span></div>${actions}</div><div class="timeline-followup-text">${highlightMentions(escapeHtml(match[3]))}</div></div>`;
                 }
-                return `<div class="timeline-followup-entry">${highlightMentions(escapeHtml(f))}</div>`;
+                return `<div class="timeline-followup-entry"><div class="followup-header"><div>${highlightMentions(escapeHtml(f))}</div>${actions}</div></div>`;
             }).join('');
             html += '</div>';
         }
         return html;
     }
     return highlightMentions(escapeHtml(text));
+}
+
+function editFollowUp(noteId, followUpIdx) {
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+    const lines = note.text.split('\n');
+    const followUps = [];
+    const mainLines = [];
+    for (const line of lines) {
+        if (line.startsWith('—')) followUps.push(line);
+        else mainLines.push(line);
+    }
+    if (followUpIdx >= followUps.length) return;
+
+    const oldLine = followUps[followUpIdx];
+    const match = oldLine.match(/^— (.+?\s*\(.+?\)):\s*(.+)$/);
+    const oldText = match ? match[2] : oldLine.substring(2);
+
+    const newText = prompt('Edit note:', oldText);
+    if (newText === null || newText.trim() === oldText) return;
+
+    if (match) {
+        followUps[followUpIdx] = `— ${match[1]}: ${newText.trim()}`;
+    } else {
+        followUps[followUpIdx] = `— ${newText.trim()}`;
+    }
+
+    note.text = [...mainLines, ...followUps].join('\n');
+    supa.from('notes').update({ text: note.text }).eq('id', noteId).catch(err => console.error('Edit follow-up error:', err));
+    refreshCurrentView();
+    if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
+}
+
+function deleteFollowUp(noteId, followUpIdx) {
+    const note = notes.find(n => n.id === noteId);
+    if (!note) return;
+
+    showConfirm('Delete Note', 'Delete this follow-up note?', () => {
+        const lines = note.text.split('\n');
+        const followUps = [];
+        const mainLines = [];
+        for (const line of lines) {
+            if (line.startsWith('—')) followUps.push(line);
+            else mainLines.push(line);
+        }
+        if (followUpIdx >= followUps.length) return;
+        followUps.splice(followUpIdx, 1);
+
+        note.text = [...mainLines, ...followUps].join('\n');
+        supa.from('notes').update({ text: note.text }).eq('id', noteId).catch(err => console.error('Delete follow-up error:', err));
+        refreshCurrentView();
+        if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
+    }, { danger: true, confirmText: 'Delete' });
 }
 
 function toggleTimelineNotePanel(noteId) {

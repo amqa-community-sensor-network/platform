@@ -1518,6 +1518,12 @@ tr:last-child td {
     border-radius: 0 6px 6px 0;
     font-size: 13px;
     line-height: 1.5;
+    position: relative;
+}
+.followup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
 }
 .timeline-followup-entry strong {
     color: var(--navy-500);
@@ -1531,6 +1537,25 @@ tr:last-child td {
 .timeline-followup-text {
     color: var(--slate-600);
     margin-top: 2px;
+}
+.followup-actions {
+    display: none;
+    gap: 4px;
+}
+.timeline-followup-entry:hover .followup-actions {
+    display: flex;
+}
+.followup-action-btn {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--slate-300);
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.followup-action-btn:hover {
+    color: var(--slate-600);
+    background: var(--slate-100);
 }
 
 .timeline-text-preview {
