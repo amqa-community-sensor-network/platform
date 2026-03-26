@@ -3285,22 +3285,20 @@ function deleteFollowUp(noteId, followUpIdx) {
     const note = notes.find(n => n.id === noteId);
     if (!note) return;
 
-    showConfirm('Delete Note', 'Delete this follow-up note?', () => {
-        const lines = note.text.split('\n');
-        const followUps = [];
-        const mainLines = [];
-        for (const line of lines) {
-            if (line.startsWith('—')) followUps.push(line);
-            else mainLines.push(line);
-        }
-        if (followUpIdx >= followUps.length) return;
-        followUps.splice(followUpIdx, 1);
+    const lines = note.text.split('\n');
+    const followUps = [];
+    const mainLines = [];
+    for (const line of lines) {
+        if (line.startsWith('—')) followUps.push(line);
+        else mainLines.push(line);
+    }
+    if (followUpIdx >= followUps.length) return;
+    followUps.splice(followUpIdx, 1);
 
-        note.text = [...mainLines, ...followUps].join('\n');
-        supa.from('notes').update({ text: note.text }).eq('id', noteId).catch(err => console.error('Delete follow-up error:', err));
-        refreshCurrentView();
-        if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
-    }, { danger: true, confirmText: 'Delete' });
+    note.text = [...mainLines, ...followUps].join('\n');
+    refreshCurrentView();
+    if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
+    supa.from('notes').update({ text: note.text }).eq('id', noteId).catch(err => console.error('Delete follow-up error:', err));
 }
 
 function toggleTimelineNotePanel(noteId) {
