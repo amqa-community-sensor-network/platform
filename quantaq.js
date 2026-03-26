@@ -465,7 +465,7 @@ function renderQuantAQAlertList(alerts, isNew) {
                 <button class="btn btn-sm" onclick="toggleQuantAQNotePanel('${a.id}')">Add Note</button>
                 <button class="btn btn-sm" onclick="showSensorDetail('${escapeHtml(a.sensorSn)}')">View Sensor</button>
                 ${!isResolved && !a.acknowledgedBy ? `<button class="btn btn-sm" style="color:var(--slate-400);border-color:var(--slate-200)" onclick="dismissQuantAQAlert('${a.id}')">Dismiss</button>` : ''}
-                ${a.acknowledgedBy ? `<span style="font-size:11px;color:var(--slate-400)">Dismissed by ${escapeHtml(a.acknowledgedBy)}</span>` : ''}
+                ${a.acknowledgedBy ? `<span style="font-size:11px;color:var(--slate-400)">Dismissed by ${escapeHtml(a.acknowledgedBy)}</span> <button class="btn btn-sm" style="font-size:10px;color:var(--slate-400);border-color:var(--slate-200)" onclick="undismissQuantAQAlert('${a.id}')">Restore</button>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -527,6 +527,22 @@ async function dismissQuantAQAlert(alertId) {
     } catch (err) {
         console.error('[QuantAQ] Failed to dismiss:', err);
         alert.acknowledgedBy = null;
+    }
+
+    renderQuantAQAlertsView();
+    renderDashboardAlerts();
+}
+
+async function undismissQuantAQAlert(alertId) {
+    const alert = quantaqAlerts.find(a => a.id === alertId);
+    if (!alert) return;
+
+    alert.acknowledgedBy = null;
+
+    try {
+        await supa.from('quantaq_alerts').update({ acknowledged_by: null }).eq('id', alertId);
+    } catch (err) {
+        console.error('[QuantAQ] Failed to undismiss:', err);
     }
 
     renderQuantAQAlertsView();
