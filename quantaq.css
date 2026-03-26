@@ -269,6 +269,13 @@
     padding-top: 8px;
     border-top: 1px solid var(--slate-100);
 }
+.quantaq-action-panel {
+    margin: 8px 16px 12px;
+    padding: 12px;
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: 8px;
+}
 .quantaq-empty {
     text-align: center;
     padding: 48px 20px;

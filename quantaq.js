@@ -467,6 +467,22 @@ function renderQuantAQAlertList(alerts, isNew) {
                 ${!isResolved && !a.acknowledgedBy ? `<button class="btn btn-sm" style="color:var(--slate-400);border-color:var(--slate-200)" onclick="dismissQuantAQAlert('${a.id}')">Dismiss</button>` : ''}
                 ${a.acknowledgedBy ? `<span style="font-size:11px;color:var(--slate-400)">Dismissed by ${escapeHtml(a.acknowledgedBy)}</span> <button class="btn btn-sm" style="font-size:10px;color:var(--slate-400);border-color:var(--slate-200)" onclick="undismissQuantAQAlert('${a.id}')">Restore</button>` : ''}
             </div>
+            ${!isResolved && !a.acknowledgedBy ? `<div id="quantaq-dismiss-panel-${a.id}" class="quantaq-action-panel" style="display:none">
+                <p style="font-size:12px;font-weight:600;color:var(--slate-500);margin-bottom:6px">Dismiss Alert</p>
+                <textarea id="quantaq-dismiss-input-${a.id}" rows="2" placeholder="Add a reason (optional — leave blank to skip)" style="width:100%;font-size:13px;font-family:var(--font-sans);padding:8px 10px;border:1px solid var(--slate-200);border-radius:6px;resize:vertical"></textarea>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                    <button class="btn btn-sm btn-primary" onclick="confirmDismissQuantAQAlert('${a.id}')">Dismiss</button>
+                    <button class="btn btn-sm" onclick="document.getElementById('quantaq-dismiss-panel-${a.id}').style.display='none'">Cancel</button>
+                </div>
+            </div>` : ''}
+            ${a.acknowledgedBy ? `<div id="quantaq-restore-panel-${a.id}" class="quantaq-action-panel" style="display:none">
+                <p style="font-size:12px;font-weight:600;color:var(--slate-500);margin-bottom:6px">Restore Alert</p>
+                <textarea id="quantaq-restore-input-${a.id}" rows="2" placeholder="Add a reason (optional — leave blank to skip)" style="width:100%;font-size:13px;font-family:var(--font-sans);padding:8px 10px;border:1px solid var(--slate-200);border-radius:6px;resize:vertical"></textarea>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                    <button class="btn btn-sm btn-primary" onclick="confirmUndismissQuantAQAlert('${a.id}')">Restore</button>
+                    <button class="btn btn-sm" onclick="document.getElementById('quantaq-restore-panel-${a.id}').style.display='none'">Cancel</button>
+                </div>
+            </div>` : ''}
         </div>`;
     }).join('');
 }
@@ -490,15 +506,24 @@ function filterQuantAQAlerts(type) {
 
 // ===== ALERT ACTIONS (persisted to database) =====
 
-async function dismissQuantAQAlert(alertId) {
+function dismissQuantAQAlert(alertId) {
+    // Show inline note input instead of browser prompt
+    const panel = document.getElementById('quantaq-dismiss-panel-' + alertId);
+    if (panel) {
+        panel.style.display = '';
+        const input = panel.querySelector('textarea');
+        if (input) input.focus();
+    }
+}
+
+async function confirmDismissQuantAQAlert(alertId) {
     const alert = quantaqAlerts.find(a => a.id === alertId);
     if (!alert) return;
 
     const userName = currentUser || 'Unknown';
     const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-
-    // Prompt for optional note
-    const noteText = prompt('Add a note (optional — leave blank to skip):');
+    const input = document.getElementById('quantaq-dismiss-input-' + alertId);
+    const noteText = input?.value?.trim() || '';
 
     alert.acknowledgedBy = userName;
 
@@ -508,24 +533,16 @@ async function dismissQuantAQAlert(alertId) {
         n.text.includes(alert.issueType) &&
         n.taggedSensors && n.taggedSensors.includes(alert.sensorSn)
     );
-
     if (eventNote) {
-        let dismissLine = `\n— Dismissed by ${userName} (${timestamp})`;
-        if (noteText && noteText.trim()) {
-            dismissLine += `: ${noteText.trim()}`;
-        }
-        eventNote.text += dismissLine;
-        try {
-            await supa.from('notes').update({ text: eventNote.text }).eq('id', eventNote.id);
-        } catch (err) {
-            console.error('[QuantAQ] Failed to update event note:', err);
-        }
+        let line = `\n— Dismissed by ${userName} (${timestamp})`;
+        if (noteText) line += `: ${noteText}`;
+        eventNote.text += line;
+        try { await supa.from('notes').update({ text: eventNote.text }).eq('id', eventNote.id); } catch(e) {}
     }
 
     try {
         await supa.from('quantaq_alerts').update({ acknowledged_by: userName }).eq('id', alertId);
     } catch (err) {
-        console.error('[QuantAQ] Failed to dismiss:', err);
         alert.acknowledgedBy = null;
     }
 
@@ -533,17 +550,43 @@ async function dismissQuantAQAlert(alertId) {
     renderDashboardAlerts();
 }
 
-async function undismissQuantAQAlert(alertId) {
+function undismissQuantAQAlert(alertId) {
+    // Show inline note input
+    const panel = document.getElementById('quantaq-restore-panel-' + alertId);
+    if (panel) {
+        panel.style.display = '';
+        const input = panel.querySelector('textarea');
+        if (input) input.focus();
+    }
+}
+
+async function confirmUndismissQuantAQAlert(alertId) {
     const alert = quantaqAlerts.find(a => a.id === alertId);
     if (!alert) return;
+
+    const userName = currentUser || 'Unknown';
+    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const input = document.getElementById('quantaq-restore-input-' + alertId);
+    const noteText = input?.value?.trim() || '';
+
+    // Add restore entry to the auto-flag event note
+    const eventNote = notes.find(n =>
+        n.text && n.text.includes('QuantAQ Auto-Flag') &&
+        n.text.includes(alert.issueType) &&
+        n.taggedSensors && n.taggedSensors.includes(alert.sensorSn)
+    );
+    if (eventNote) {
+        let line = `\n— Restored by ${userName} (${timestamp})`;
+        if (noteText) line += `: ${noteText}`;
+        eventNote.text += line;
+        try { await supa.from('notes').update({ text: eventNote.text }).eq('id', eventNote.id); } catch(e) {}
+    }
 
     alert.acknowledgedBy = null;
 
     try {
         await supa.from('quantaq_alerts').update({ acknowledged_by: null }).eq('id', alertId);
-    } catch (err) {
-        console.error('[QuantAQ] Failed to undismiss:', err);
-    }
+    } catch (err) {}
 
     renderQuantAQAlertsView();
     renderDashboardAlerts();
