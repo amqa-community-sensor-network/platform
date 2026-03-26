@@ -5051,12 +5051,24 @@ function executeBulkAction() {
 }
 
 // ===== BACK BUTTON =====
-let viewHistory = [];
+let viewHistory = []; // Each entry: { viewId, itemId }
 
 function pushViewHistory() {
     if (isNavigatingBack) return;
     const active = document.querySelector('.view.active');
-    if (active) viewHistory.push(active.id);
+    if (!active) return;
+
+    // Build entry with the specific item being viewed
+    const entry = { viewId: active.id, itemId: null };
+    if (active.id === 'view-sensor-detail') entry.itemId = currentSensor;
+    else if (active.id === 'view-community') entry.itemId = currentCommunity;
+    else if (active.id === 'view-contact-detail') entry.itemId = currentContact;
+
+    // Don't push duplicate of current top
+    const top = viewHistory[viewHistory.length - 1];
+    if (top && top.viewId === entry.viewId && top.itemId === entry.itemId) return;
+
+    viewHistory.push(entry);
     if (viewHistory.length > 20) viewHistory.shift();
     updateBackButton();
 }
@@ -5071,18 +5083,21 @@ let isNavigatingBack = false;
 function goBack() {
     if (viewHistory.length <= 1) return;
     viewHistory.pop(); // remove current view
-    const prevViewId = viewHistory[viewHistory.length - 1];
-    isNavigatingBack = true; // prevent pushViewHistory from adding during navigation
-    if (prevViewId === 'view-dashboard') showView('dashboard');
-    else if (prevViewId === 'view-all-sensors') showView('all-sensors');
-    else if (prevViewId === 'view-communities') showView('communities');
-    else if (prevViewId === 'view-contacts') showView('contacts');
-    else if (prevViewId === 'view-settings') showView('settings');
-    else if (prevViewId === 'view-service') showView('service');
-    else if (prevViewId === 'view-audits') showView('audits');
-    else if (prevViewId === 'view-community' && currentCommunity) showCommunityView(currentCommunity);
-    else if (prevViewId === 'view-sensor-detail' && currentSensor) showSensorView(currentSensor);
-    else if (prevViewId === 'view-contact-detail' && currentContact) showContactView(currentContact);
+    const prev = viewHistory[viewHistory.length - 1];
+    if (!prev) return;
+
+    isNavigatingBack = true;
+    if (prev.viewId === 'view-dashboard') showView('dashboard');
+    else if (prev.viewId === 'view-all-sensors') showView('all-sensors');
+    else if (prev.viewId === 'view-communities') showView('communities');
+    else if (prev.viewId === 'view-contacts') showView('contacts');
+    else if (prev.viewId === 'view-settings') showView('settings');
+    else if (prev.viewId === 'view-service') showView('service');
+    else if (prev.viewId === 'view-audits') showView('audits');
+    else if (prev.viewId === 'view-quantaq-alerts') showView('quantaq-alerts');
+    else if (prev.viewId === 'view-community' && prev.itemId) showCommunityView(prev.itemId);
+    else if (prev.viewId === 'view-sensor-detail' && prev.itemId) { currentSensor = prev.itemId; showSensorView(prev.itemId); }
+    else if (prev.viewId === 'view-contact-detail' && prev.itemId) { currentContact = prev.itemId; showContactView(prev.itemId); }
     isNavigatingBack = false;
     updateBackButton();
 }
