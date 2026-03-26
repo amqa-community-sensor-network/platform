@@ -432,13 +432,19 @@ function renderQuantAQAlertList(alerts, isNew) {
             n.taggedSensors && n.taggedSensors.includes(a.sensorSn)
         );
 
-        // Extract follow-up lines (appended after the original auto-flag text)
+        // Extract follow-up lines with edit/delete actions
         let followUpHtml = '';
         if (eventNote && eventNote.text.includes('\n—')) {
             const lines = eventNote.text.split('\n').filter(l => l.startsWith('—'));
-            followUpHtml = lines.map(l =>
-                `<div class="quantaq-followup-note">${escapeHtml(l.substring(2))}</div>`
-            ).join('');
+            followUpHtml = lines.map((l, idx) => {
+                const text = l.substring(2).trim();
+                const match = text.match(/^(.+?)\s*\((.+?)\)(?::\s*(.+))?$/);
+                const actions = `<span class="followup-actions" onclick="event.stopPropagation()"><span class="followup-action-btn" onclick="editFollowUp('${eventNote.id}', ${idx})" title="Edit">&#9998;</span><span class="followup-action-btn" onclick="deleteFollowUp('${eventNote.id}', ${idx})" title="Delete">&#128465;</span></span>`;
+                if (match) {
+                    return `<div class="quantaq-followup-note"><div class="followup-header"><div><strong>${escapeHtml(match[1])}</strong> <span class="timeline-followup-date">${escapeHtml(match[2])}</span></div>${actions}</div>${match[3] ? `<div class="timeline-followup-text">${escapeHtml(match[3])}</div>` : ''}</div>`;
+                }
+                return `<div class="quantaq-followup-note"><div class="followup-header"><div>${escapeHtml(text)}</div>${actions}</div></div>`;
+            }).join('');
         }
 
         return `<div class="quantaq-alert-card ${isNew ? 'new' : ''} ${isResolved ? 'resolved' : ''}">

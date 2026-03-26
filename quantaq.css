@@ -263,7 +263,10 @@
     color: var(--slate-600);
     margin-top: 8px;
     line-height: 1.5;
+    position: relative;
 }
+.quantaq-followup-note .followup-actions { display: none; }
+.quantaq-followup-note:hover .followup-actions { display: flex; }
 .quantaq-note-panel {
     margin-top: 8px;
     padding-top: 8px;
