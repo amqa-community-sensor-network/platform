@@ -94,16 +94,20 @@
 .quantaq-count { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent; }
 .quantaq-count:hover { transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .quantaq-count.all { background: var(--slate-100); }
-.quantaq-count.offline { background: #fee2e2; }
-.quantaq-count.pm { background: #fef3c7; }
-.quantaq-count.gas { background: #ede9fe; }
-.quantaq-count.sd { background: #fee2e2; }
+.quantaq-count.offline { background: #f1f5f9; }
+.quantaq-count.pm { background: #fff7ed; }
+.quantaq-count.gas { background: #fff7ed; }
+.quantaq-count.sd { background: #fefce8; }
 .quantaq-count.active-filter { border-color: var(--navy-500); box-shadow: 0 2px 8px rgba(27,42,74,0.15); }
 .quantaq-count-num {
     font-size: 22px;
     font-weight: 700;
     color: var(--navy-500);
 }
+.quantaq-count.offline .quantaq-count-num { color: #64748b; }
+.quantaq-count.pm .quantaq-count-num { color: #c2410c; }
+.quantaq-count.gas .quantaq-count-num { color: #c2410c; }
+.quantaq-count.sd .quantaq-count-num { color: #a16207; }
 .quantaq-count-label {
     font-size: 10px;
     font-weight: 600;
@@ -219,10 +223,10 @@
     font-weight: 600;
     margin-left: 6px;
 }
-.quantaq-badge-offline { background: #fee2e2; color: #dc2626; }
-.quantaq-badge-pm { background: #fef3c7; color: #92400e; }
-.quantaq-badge-gas { background: #ede9fe; color: #6d28d9; }
-.quantaq-badge-sd { background: #fee2e2; color: #dc2626; }
+.quantaq-badge-offline { background: #f1f5f9; color: #64748b; }
+.quantaq-badge-pm { background: #fff7ed; color: #c2410c; }
+.quantaq-badge-gas { background: #fff7ed; color: #c2410c; }
+.quantaq-badge-sd { background: #fefce8; color: #a16207; }
 .quantaq-badge-resolved { background: #dcfce7; color: #16a34a; }
 
 .quantaq-new-tag {
