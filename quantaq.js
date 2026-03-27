@@ -360,15 +360,16 @@ function renderDashboardAlerts() {
 
     // Alert counts row — clickable to filter
     if (active.length > 0) {
-        const countCard = (list, type, cls, label) => list.length > 0
-            ? `<div class="quantaq-count ${cls} ${quantaqFilter === type ? 'active-filter' : ''}" onclick="filterQuantAQAlerts('${type}')"><span class="quantaq-count-num">${list.length}</span><span class="quantaq-count-label">${label}</span></div>`
-            : '';
+        const countCard = (list, type, cls, label, alwaysShow) => {
+            if (!alwaysShow && list.length === 0) return '';
+            return `<div class="quantaq-count ${cls} ${quantaqFilter === type ? 'active-filter' : ''}" onclick="filterQuantAQAlerts('${type}')"><span class="quantaq-count-num">${list.length}</span><span class="quantaq-count-label">${label}</span></div>`;
+        };
         html += `<div class="quantaq-counts" style="margin-bottom:16px">
-            ${countCard(active, '', 'all', 'All Active')}
-            ${countCard(offline, 'Lost Connection', 'offline', 'Lost Connection')}
-            ${countCard(pmIssues, 'PM Sensor Issue', 'pm', 'PM Issue')}
-            ${countCard(gasIssues, 'Gaseous Sensor Issue', 'gas', 'Gas Issue')}
-            ${countCard(sdIssues, 'SD Card Issue', 'sd', 'SD Card')}
+            ${countCard(active, '', 'all', 'All Active', true)}
+            ${countCard(offline, 'Lost Connection', 'offline', 'Lost Connection', true)}
+            ${countCard(pmIssues, 'PM Sensor Issue', 'pm', 'PM Issue', true)}
+            ${countCard(gasIssues, 'Gaseous Sensor Issue', 'gas', 'Gas Issue', true)}
+            ${countCard(sdIssues, 'SD Card Issue', 'sd', 'SD Card', false)}
         </div>`;
         if (quantaqFilter) {
             html += `<p style="font-size:12px;color:var(--slate-400);margin-bottom:12px">Filtered by: <strong>${quantaqFilter || 'All'}</strong> <a href="#" onclick="event.preventDefault();filterQuantAQAlerts('')" style="color:var(--navy-400);margin-left:6px">Clear filter</a></p>`;
