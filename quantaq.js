@@ -91,7 +91,7 @@ async function runQuantAQCheck() {
                 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
                 'Content-Type': 'application/json',
             },
-            body: '{}',
+            body: '{"mode":"full"}',
             signal: controller.signal,
         });
         clearTimeout(timeoutId);
