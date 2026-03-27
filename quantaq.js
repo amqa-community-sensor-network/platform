@@ -103,13 +103,14 @@ async function runQuantAQCheck() {
     if (quantaqChecking) return;
     quantaqChecking = true;
     const checkStartTime = Date.now();
+    let _qaqProgressMsg = 'Fetching device list...';
     let dots = 0;
     const progressInterval = setInterval(() => {
         dots = (dots + 1) % 4;
         const elapsed = Math.floor((Date.now() - checkStartTime) / 1000);
-        updateQuantAQStatus(`Checking sensors${'.'.repeat(dots)} (${elapsed}s)`);
-    }, 500);
-    updateQuantAQStatus('Fetching device list...');
+        updateQuantAQStatus(`${_qaqProgressMsg}${'.'.repeat(dots)} (${elapsed}s)`);
+    }, 400);
+    updateQuantAQStatus(_qaqProgressMsg);
     renderCheckButtons();
 
     try {
@@ -161,11 +162,11 @@ async function runQuantAQCheck() {
         }
 
         // Step 3: Check flags for online sensors (batched, 15 at a time)
-        updateQuantAQStatus(`Checking ${onlineDevices.length} online sensors for issues...`);
+        _qaqProgressMsg = `Checking ${onlineDevices.length} online sensors for issues`;
         const BATCH = 15;
         for (let i = 0; i < onlineDevices.length; i += BATCH) {
             const batch = onlineDevices.slice(i, i + BATCH);
-            updateQuantAQStatus(`Checking sensors ${i + 1}–${Math.min(i + BATCH, onlineDevices.length)} of ${onlineDevices.length}...`);
+            _qaqProgressMsg = `Checking sensors ${i + 1}–${Math.min(i + BATCH, onlineDevices.length)} of ${onlineDevices.length}`;
             await new Promise(r => setTimeout(r, 0)); // yield to let UI repaint
 
             await Promise.allSettled(batch.map(async (d) => {
