@@ -66,60 +66,191 @@ async function initQuantAQ() {
 
 // ===== RUN CHECK (calls Edge Function, then reloads from DB) =====
 
+// ===== QUANTAQ API (via Edge Function proxy) =====
+
+async function qaqFetch(path) {
+    const resp = await fetch(SUPABASE_URL + '/functions/v1/quantaq-check', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+    });
+    if (!resp.ok) throw new Error(`Proxy error ${resp.status}`);
+    return resp.json();
+}
+
+// Flag bitmask
+const FLAG_OPC = 2, FLAG_NEPH = 4, FLAG_CO = 16, FLAG_NO = 32, FLAG_NO2 = 64, FLAG_O3 = 128, FLAG_SD = 8192;
+function decodeQAQFlags(f) {
+    const issues = [];
+    if (f & (FLAG_OPC | FLAG_NEPH)) issues.push('PM Sensor Issue');
+    if (f & (FLAG_CO | FLAG_NO | FLAG_NO2 | FLAG_O3)) issues.push('Gaseous Sensor Issue');
+    if (f & FLAG_SD) issues.push('SD Card Issue');
+    return issues;
+}
+function describeQAQFlags(f) {
+    const n = [];
+    if (f & FLAG_OPC) n.push('OPC'); if (f & FLAG_NEPH) n.push('NEPH');
+    if (f & FLAG_CO) n.push('CO'); if (f & FLAG_NO) n.push('NO');
+    if (f & FLAG_NO2) n.push('NO2'); if (f & FLAG_O3) n.push('O3');
+    if (f & FLAG_SD) n.push('SD');
+    return n.join(', ');
+}
+
+const EXPECTED_OFFLINE = ['Lab Storage','In Transit Between Audits','Service at Quant','Ready for Deployment','Shipped to Quant','Shipped from Quant'];
+const OFFLINE_MS = 60 * 60 * 1000;
+
 async function runQuantAQCheck() {
     if (quantaqChecking) return;
     quantaqChecking = true;
-    console.log('[QuantAQ] Starting check, SUPABASE_URL:', SUPABASE_URL);
     const checkStartTime = Date.now();
     let dots = 0;
     const progressInterval = setInterval(() => {
         dots = (dots + 1) % 4;
         const elapsed = Math.floor((Date.now() - checkStartTime) / 1000);
-        updateQuantAQStatus(`Checking ~71 sensors with QuantAQ${'.'.repeat(dots)}  (${elapsed}s elapsed)`);
+        updateQuantAQStatus(`Checking sensors${'.'.repeat(dots)} (${elapsed}s)`);
     }, 500);
-    updateQuantAQStatus('Checking ~71 sensors with QuantAQ...');
+    updateQuantAQStatus('Fetching device list...');
     renderCheckButtons();
 
     try {
-        // Call the Edge Function with a long timeout (5 minutes)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 300000);
+        const now = new Date().toISOString();
 
-        const resp = await fetch(SUPABASE_URL + '/functions/v1/quantaq-check', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                'Content-Type': 'application/json',
-            },
-            body: '{}',
-            signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        // Load existing active alerts
+        const { data: existingAlerts } = await supa.from('quantaq_alerts').select('*').eq('status', 'active');
+        const stillActiveIds = new Set();
+        const newAlerts = [];
+        const statusUpdates = [];
 
-        if (!resp.ok) {
-            const errText = await resp.text().catch(() => '');
-            throw new Error(`Check failed (${resp.status}): ${errText.slice(0, 200)}`);
+        // Step 1: Get all devices (1-2 API calls)
+        updateQuantAQStatus('Fetching device list...');
+        let devices = [];
+        let page = 1, pages = 1;
+        while (page <= pages) {
+            const json = await qaqFetch(`/devices/?per_page=100&org_id=1250&page=${page}`);
+            devices = devices.concat(json.data || []);
+            pages = json.meta?.pages || 1;
+            page++;
         }
 
-        const result = await resp.json();
-        console.log('[QuantAQ] Check result:', result);
+        // Step 2: Separate offline vs online
+        const onlineDevices = [];
+        for (const d of devices) {
+            const lastSeen = d.last_seen ? new Date(d.last_seen.endsWith('Z') ? d.last_seen : d.last_seen + 'Z') : null;
+            const msSince = lastSeen ? Date.now() - lastSeen.getTime() : Infinity;
+            const appSensor = sensors.find(s => s.id === d.sn);
+            const appStatuses = appSensor ? getStatusArray(appSensor) : [];
 
-        if (result && !result.success) {
-            throw new Error(result.error || 'Check returned failure');
+            if (msSince > OFFLINE_MS) {
+                if (appStatuses.some(s => EXPECTED_OFFLINE.includes(s))) continue;
+                const detail = lastSeen ? `Last seen ${quantaqTimeSince(lastSeen.toISOString())}` : 'Never seen';
+                const community = appSensor ? getCommunityName(appSensor.community) : (d.city || '');
+                const existing = (existingAlerts || []).find(a => a.sensor_sn === d.sn && a.issue_type === 'Lost Connection');
+                if (existing) {
+                    stillActiveIds.add(existing.id);
+                    await supa.from('quantaq_alerts').update({ last_checked: now, detail, is_new: false }).eq('id', existing.id);
+                } else {
+                    newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: 'Lost Connection', detail, status: 'active', is_new: true, detected_at: now, last_checked: now, notes: [] });
+                    statusUpdates.push({ sn: d.sn, statuses: ['Lost Connection'] });
+                }
+            } else {
+                onlineDevices.push(d);
+            }
         }
 
-        updateQuantAQStatus(`Check complete: ${result.devices_checked} devices, ${result.new_alerts} new alerts, ${result.resolved_alerts} resolved`);
+        // Step 3: Check flags for online sensors (batched, 15 at a time)
+        updateQuantAQStatus(`Checking ${onlineDevices.length} online sensors for issues...`);
+        const BATCH = 15;
+        for (let i = 0; i < onlineDevices.length; i += BATCH) {
+            const batch = onlineDevices.slice(i, i + BATCH);
+            updateQuantAQStatus(`Checking sensors ${i + 1}–${Math.min(i + BATCH, onlineDevices.length)} of ${onlineDevices.length}...`);
 
-        // Reload alerts from database
+            await Promise.allSettled(batch.map(async (d) => {
+                try {
+                    const json = await qaqFetch(`/devices/${d.sn}/data/raw/?per_page=1&sort=timestamp,desc`);
+                    const raw = json.data?.[0];
+                    if (!raw || !raw.flag || raw.flag <= 1) return;
+                    const flagClean = raw.flag & ~1;
+                    if (flagClean === 0) return;
+
+                    const issues = decodeQAQFlags(flagClean);
+                    const flagDesc = describeQAQFlags(flagClean);
+                    const appSensor = sensors.find(s => s.id === d.sn);
+                    const community = appSensor ? getCommunityName(appSensor.community) : (d.city || '');
+
+                    for (const issueType of issues) {
+                        const existing = (existingAlerts || []).find(a => a.sensor_sn === d.sn && a.issue_type === issueType);
+                        if (existing) {
+                            stillActiveIds.add(existing.id);
+                            await supa.from('quantaq_alerts').update({ last_checked: now, detail: `Flags: ${flagDesc} (raw: ${raw.flag})`, is_new: false }).eq('id', existing.id);
+                        } else {
+                            newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: issueType, detail: `Flags: ${flagDesc} (raw: ${raw.flag})`, status: 'active', is_new: true, detected_at: now, last_checked: now, notes: [] });
+                            statusUpdates.push({ sn: d.sn, statuses: [issueType] });
+                        }
+                    }
+                } catch(e) { console.warn(`[QAQ] Raw error for ${d.sn}:`, e); }
+            }));
+        }
+
+        // Step 4: Insert new alerts + create event notes
+        if (newAlerts.length > 0) {
+            await supa.from('quantaq_alerts').insert(newAlerts);
+            for (const alert of newAlerts) {
+                try {
+                    const appSensor = sensors.find(s => s.id === alert.sensor_sn);
+                    const communityId = appSensor?.community || '';
+                    const note = createNote('Issue', `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn}. ${alert.detail}`, {
+                        sensors: [alert.sensor_sn], communities: communityId ? [communityId] : [], contacts: [],
+                    });
+                } catch(e) {}
+            }
+        }
+
+        // Step 5: Resolve cleared alerts
+        const toResolve = (existingAlerts || []).filter(a => !stillActiveIds.has(a.id));
+        if (toResolve.length > 0) {
+            const ids = toResolve.map(a => a.id);
+            await supa.from('quantaq_alerts').update({ status: 'resolved', resolved_at: now, is_new: true, last_checked: now }).in('id', ids);
+            for (const alert of toResolve) {
+                try {
+                    const appSensor = sensors.find(s => s.id === alert.sensor_sn);
+                    const communityId = appSensor?.community || '';
+                    createNote('Issue', `QuantAQ Auto-Resolved: ${alert.issue_type} on ${alert.sensor_sn} has cleared.`, {
+                        sensors: [alert.sensor_sn], communities: communityId ? [communityId] : [], contacts: [],
+                    });
+                    // Remove status from sensor
+                    if (appSensor && alert.issue_type !== 'Lost Connection') {
+                        const cur = getStatusArray(appSensor).filter(s => s !== alert.issue_type);
+                        appSensor.status = cur.length > 0 ? cur : ['Online'];
+                        persistSensor(appSensor);
+                    }
+                } catch(e) {}
+            }
+        }
+
+        // Step 6: Update sensor statuses for new issues
+        for (const u of statusUpdates) {
+            const s = sensors.find(x => x.id === u.sn);
+            if (!s) continue;
+            const cur = getStatusArray(s);
+            const merged = new Set([...cur, ...u.statuses]);
+            merged.delete('Online');
+            const final = [...merged];
+            if ([...final].sort().join(',') !== [...cur].sort().join(',')) {
+                s.status = final;
+                persistSensor(s);
+            }
+        }
+
+        // Step 7: Update timestamp
+        await db.setAppSetting('quantaq_last_check', now);
+
+        // Reload and render
         await loadQuantAQAlerts();
         await loadQuantAQLastCheck();
-        console.log('[QuantAQ] After reload:', quantaqAlerts.length, 'alerts, lastCheck:', quantaqLastCheck);
-
-        // Re-render — call renderDashboardAlerts directly to avoid rebuilding entire dashboard
+        const elapsed = Math.floor((Date.now() - checkStartTime) / 1000);
+        updateQuantAQStatus(`Check complete in ${elapsed}s: ${devices.length} devices, ${newAlerts.length} new alerts, ${toResolve.length} resolved`);
         renderDashboardAlerts();
-        if (document.getElementById('view-quantaq-alerts')?.classList.contains('active')) {
-            renderQuantAQAlertsView();
-        }
+        buildSensorSidebar();
 
     } catch (err) {
         console.error('[QuantAQ] Check failed:', err);
