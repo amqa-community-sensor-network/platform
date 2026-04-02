@@ -5069,6 +5069,16 @@ function openExportModal(type) {
         });
     }
 
+    // Show/hide inactive contacts checkbox
+    const inactiveOption = document.getElementById('export-inactive-option');
+    const inactiveCheckbox = document.getElementById('export-include-inactive');
+    if (type === 'contacts') {
+        inactiveOption.style.display = '';
+        inactiveCheckbox.checked = false;
+    } else {
+        inactiveOption.style.display = 'none';
+    }
+
     openModal('modal-export');
 }
 
@@ -5079,7 +5089,13 @@ function executeExport() {
 
     const fields = type === 'sensors' ? SENSOR_EXPORT_FIELDS : CONTACT_EXPORT_FIELDS;
     const customFields = loadData('customSensorFields', []);
-    const data = type === 'sensors' ? [...sensors].sort((a, b) => a.id.localeCompare(b.id)) : [...contacts].sort((a, b) => a.name.localeCompare(b.name));
+    let data;
+    if (type === 'sensors') {
+        data = [...sensors].sort((a, b) => a.id.localeCompare(b.id));
+    } else {
+        const includeInactive = document.getElementById('export-include-inactive').checked;
+        data = contacts.filter(c => includeInactive || c.active !== false).sort((a, b) => a.name.localeCompare(b.name));
+    }
 
     const headers = [];
     const getters = [];
