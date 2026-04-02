@@ -638,15 +638,7 @@ function toggleSetupMode() {
     setupMode = !setupMode;
     sessionStorage.setItem('snt_setupMode', setupMode);
     renderSetupModeIndicator();
-    // Re-render current view to reflect mode change
-    const activeView = document.querySelector('.view.active');
-    if (activeView) {
-        if (activeView.id === 'view-dashboard' && typeof renderDashboardAlerts === 'function') renderDashboardAlerts();
-        if (activeView.id === 'view-all-sensors') renderSensors();
-        if (activeView.id === 'view-community' && currentCommunity) showCommunityView(currentCommunity);
-        if (activeView.id === 'view-sensor-detail' && currentSensor) showSensorView(currentSensor);
-        if (activeView.id === 'view-contact-detail' && currentContact) showContactView(currentContact);
-    }
+    refreshCurrentView();
 }
 
 function renderSetupModeIndicator() {
@@ -3702,17 +3694,15 @@ function refreshCurrentView() {
     // Preserve active tab before re-rendering
     const activeTab = document.querySelector('.view.active .tab.active')?.dataset.tab;
     // Only re-render the currently active view — not all views with non-null state.
-    // (currentSensor, currentCommunity, currentContact are never cleared on view switch,
-    // so calling all three would navigate away to whichever runs last.)
     const activeView = document.querySelector('.view.active');
     const activeViewId = activeView?.id;
-    if (activeViewId === 'view-sensor-detail' && currentSensor) {
-        showSensorView(currentSensor);
-    } else if (activeViewId === 'view-community' && currentCommunity) {
-        showCommunityView(currentCommunity);
-    } else if (activeViewId === 'view-contact-detail' && currentContact) {
-        showContactView(currentContact);
-    }
+    if (activeViewId === 'view-dashboard') { if (typeof renderDashboardAlerts === 'function') renderDashboardAlerts(); }
+    else if (activeViewId === 'view-all-sensors') { renderSensors(); }
+    else if (activeViewId === 'view-contacts') { renderContacts(); }
+    else if (activeViewId === 'view-communities') { renderCommunitiesList(); }
+    else if (activeViewId === 'view-sensor-detail' && currentSensor) { showSensorView(currentSensor); }
+    else if (activeViewId === 'view-community' && currentCommunity) { showCommunityView(currentCommunity); }
+    else if (activeViewId === 'view-contact-detail' && currentContact) { showContactView(currentContact); }
     // Restore active tab after re-render (showXxxView calls resetTabs which defaults to first tab)
     if (activeTab) {
         const container = document.querySelector('.view.active');
