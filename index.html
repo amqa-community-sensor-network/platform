@@ -333,6 +333,10 @@
                     <button class="btn btn-primary" onclick="openEmailModal()">&#9993; Email</button>
                     <button class="btn" onclick="exportContacts()">Export</button>
                 </div>
+                <div class="community-list-tabs">
+                    <button class="community-list-tab active" id="contacts-tab-active" onclick="switchContactsTab('active')">Active Communities <span class="community-tab-count" id="contacts-active-count"></span></button>
+                    <button class="community-list-tab" id="contacts-tab-inactive" onclick="switchContactsTab('inactive')">Inactive Communities <span class="community-tab-count" id="contacts-inactive-count"></span></button>
+                </div>
                 <div class="filter-bar">
                     <input type="text" id="contact-search" placeholder="Search contacts..." oninput="renderContacts()" aria-label="Search contacts">
                 </div>

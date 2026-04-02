@@ -2313,10 +2313,35 @@ async function deleteFile(communityId, fileId, storagePath) {
 }
 
 // ===== CONTACTS =====
+let contactsListTab = 'active';
+
+function switchContactsTab(tab) {
+    contactsListTab = tab;
+    document.getElementById('contacts-tab-active').classList.toggle('active', tab === 'active');
+    document.getElementById('contacts-tab-inactive').classList.toggle('active', tab === 'inactive');
+    renderContacts();
+}
+
 function renderContacts() {
     const search = (document.getElementById('contact-search')?.value || '').toLowerCase();
+    const isSearching = search.length > 0;
+
+    // Update tab counts
+    const activeCommunityContacts = contacts.filter(c => !isCommunityDeactivated(c.community));
+    const inactiveCommunityContacts = contacts.filter(c => isCommunityDeactivated(c.community));
+    const activeCountEl = document.getElementById('contacts-active-count');
+    const inactiveCountEl = document.getElementById('contacts-inactive-count');
+    if (activeCountEl) activeCountEl.textContent = `(${activeCommunityContacts.length})`;
+    if (inactiveCountEl) inactiveCountEl.textContent = `(${inactiveCommunityContacts.length})`;
+
     let filtered = contacts.filter(c => {
         if (search && !c.name.toLowerCase().includes(search) && !getCommunityName(c.community).toLowerCase().includes(search)) return false;
+        // Filter by community active/inactive tab (skip when searching)
+        if (!isSearching) {
+            const showInactive = contactsListTab === 'inactive';
+            const communityIsInactive = isCommunityDeactivated(c.community);
+            if (showInactive !== communityIsInactive) return false;
+        }
         return true;
     });
 
@@ -2363,7 +2388,7 @@ function renderContacts() {
                 </tbody></table>
             </div>
         </div>
-    `).join('') || '<div class="empty-state">No contacts found.</div>';
+    `).join('') || `<div class="empty-state">${contactsListTab === 'inactive' && !isSearching ? 'No contacts in inactive communities.' : 'No contacts found.'}</div>`;
 }
 
 function openAddContactModal() {
