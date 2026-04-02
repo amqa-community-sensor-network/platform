@@ -2094,17 +2094,7 @@ function showCommunityView(communityId) {
         <div class="table-container"><table class="contacts-table"><thead><tr>
             <th class="col-name">Name</th><th class="col-role">Role</th><th class="col-org">Organization</th><th class="col-email">Email</th><th class="col-phone">Phone</th><th class="col-status">Status</th><th class="col-actions"></th>
         </tr></thead><tbody>
-        ${commContacts.map(c => `
-            <tr class="${c.active === false ? 'contact-row-inactive' : ''}" onclick="showContactDetail('${c.id}')" style="cursor:pointer">
-                <td class="col-name"><span class="clickable">${c.name}</span></td>
-                <td class="col-role" title="${escapeHtml(c.role || '')}">${c.role || '—'}</td>
-                <td class="col-org" title="${escapeHtml(c.org || '')}">${c.org || '—'}</td>
-                <td class="col-email"><span class="email-cell">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '<span class="no-email">—</span>'}<label class="email-list-toggle" onclick="event.stopPropagation()" title="${c.emailList ? 'On network-wide email list — click to remove' : 'Not on email list — click to add'}"><input type="checkbox" class="email-list-checkbox" ${c.emailList ? 'checked' : ''} onchange="toggleContactEmailList('${c.id}')"><span class="email-list-label">Email List</span></label></span></td>
-                <td class="col-phone">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : '—'}</td>
-                <td class="col-status">${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--aurora-green);font-size:11px;font-weight:600">Active</span>'}</td>
-                <td class="col-actions"><button class="contact-delete-btn" onclick="event.stopPropagation(); confirmDeleteContact('${c.id}')" title="Delete contact">&#128465;</button></td>
-            </tr>
-        `).join('')}
+        ${commContacts.map(c => renderContactRow(c)).join('')}
         </tbody></table></div>
     ` : '<div class="empty-state">No contacts for this community.</div>';
 
@@ -2313,6 +2303,33 @@ async function deleteFile(communityId, fileId, storagePath) {
 }
 
 // ===== CONTACTS =====
+
+function renderContactRow(c) {
+    if (setupMode) {
+        return `<tr>
+            <td class="col-name"><input class="inline-edit-input" data-contact="${c.id}" data-field="name" value="${escapeHtml(c.name)}" onblur="inlineSaveContact(this); renderContacts()" onkeydown="if(event.key==='Enter')this.blur()"></td>
+            <td class="col-role"><input class="inline-edit-input" data-contact="${c.id}" data-field="role" value="${escapeHtml(c.role || '')}" placeholder="Role" onblur="inlineSaveContact(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+            <td class="col-org"><input class="inline-edit-input" data-contact="${c.id}" data-field="org" value="${escapeHtml(c.org || '')}" placeholder="Organization" onblur="inlineSaveContact(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+            <td class="col-email"><input class="inline-edit-input" type="email" data-contact="${c.id}" data-field="email" value="${escapeHtml(c.email || '')}" placeholder="Email" onblur="inlineSaveContact(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+            <td class="col-phone"><input class="inline-edit-input" type="tel" data-contact="${c.id}" data-field="phone" value="${escapeHtml(c.phone || '')}" placeholder="Phone" onblur="inlineSaveContact(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
+            <td class="col-status"><select class="inline-edit-select" data-contact="${c.id}" data-field="active" onchange="inlineSaveContact(this)">
+                <option value="true" ${c.active !== false ? 'selected' : ''}>Active</option>
+                <option value="false" ${c.active === false ? 'selected' : ''}>Inactive</option>
+            </select></td>
+            <td class="col-actions"><button class="contact-delete-btn" style="opacity:1" onclick="event.stopPropagation(); confirmDeleteContact('${c.id}')" title="Delete contact">&#128465;</button></td>
+        </tr>`;
+    }
+    return `<tr class="${c.active === false ? 'contact-row-inactive' : ''}" onclick="showContactDetail('${c.id}')" style="cursor:pointer">
+        <td class="col-name"><span class="clickable">${c.name}</span></td>
+        <td class="col-role" title="${escapeHtml(c.role || '')}">${c.role || '—'}</td>
+        <td class="col-org" title="${escapeHtml(c.org || '')}">${c.org || '—'}</td>
+        <td class="col-email"><span class="email-cell">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '<span class="no-email">—</span>'}<label class="email-list-toggle" onclick="event.stopPropagation()" title="${c.emailList ? 'On network-wide email list — click to remove' : 'Not on email list — click to add'}"><input type="checkbox" class="email-list-checkbox" ${c.emailList ? 'checked' : ''} onchange="toggleContactEmailList('${c.id}')"><span class="email-list-label">Email List</span></label></span></td>
+        <td class="col-phone">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : '—'}</td>
+        <td class="col-status">${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--aurora-green);font-size:11px;font-weight:600">Active</span>'}</td>
+        <td class="col-actions"><button class="contact-delete-btn" onclick="event.stopPropagation(); confirmDeleteContact('${c.id}')" title="Delete contact">&#128465;</button></td>
+    </tr>`;
+}
+
 let contactsListTab = 'active';
 
 function switchContactsTab(tab) {
@@ -2374,17 +2391,7 @@ function renderContacts() {
                 <table class="contacts-table"><thead><tr>
                     <th class="col-name">Name</th><th class="col-role">Role</th><th class="col-org">Organization</th><th class="col-email">Email</th><th class="col-phone">Phone</th><th class="col-status">Status</th><th class="col-actions"></th>
                 </tr></thead><tbody>
-                ${groups[commName].map(c => `
-                    <tr class="${c.active === false ? 'contact-row-inactive' : ''}" onclick="showContactDetail('${c.id}')" style="cursor:pointer">
-                        <td class="col-name"><span class="clickable">${c.name}</span></td>
-                        <td class="col-role" title="${escapeHtml(c.role || '')}">${c.role || '—'}</td>
-                        <td class="col-org" title="${escapeHtml(c.org || '')}">${c.org || '—'}</td>
-                        <td class="col-email"><span class="email-cell">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '<span class="no-email">—</span>'}<label class="email-list-toggle" onclick="event.stopPropagation()" title="${c.emailList ? 'On network-wide email list — click to remove' : 'Not on email list — click to add'}"><input type="checkbox" class="email-list-checkbox" ${c.emailList ? 'checked' : ''} onchange="toggleContactEmailList('${c.id}')"><span class="email-list-label">Email List</span></label></span></td>
-                        <td class="col-phone">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : '—'}</td>
-                        <td class="col-status">${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--aurora-green);font-size:11px;font-weight:600">Active</span>'}</td>
-                        <td class="col-actions"><button class="contact-delete-btn" onclick="event.stopPropagation(); confirmDeleteContact('${c.id}')" title="Delete contact">&#128465;</button></td>
-                    </tr>
-                `).join('')}
+                ${groups[commName].map(c => renderContactRow(c)).join('')}
                 </tbody></table>
             </div>
         </div>
