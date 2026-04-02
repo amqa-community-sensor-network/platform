@@ -3060,7 +3060,10 @@ function sendEmail() {
     }
 
     // Open mailto link (works with Outlook and other mail clients)
-    const mailtoLink = `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const useBcc = document.getElementById('email-bcc-toggle').checked;
+    const mailtoLink = useBcc
+        ? `mailto:?bcc=${emails.join(',')}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+        : `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
 
     // Log the communication under each involved contact and community

@@ -3174,6 +3174,34 @@ tr:hover .contact-delete-btn {
     vertical-align: middle;
 }
 
+.email-bcc-row {
+    padding: 10px 28px;
+    border-bottom: 1px solid var(--slate-100);
+}
+
+.email-bcc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--slate-700);
+}
+
+.email-bcc-toggle input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--navy-600);
+    cursor: pointer;
+}
+
+.email-bcc-hint {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--slate-400);
+}
+
 .email-toolbar-label {
     font-size: 12.5px;
     color: var(--slate-500);
