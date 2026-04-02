@@ -484,71 +484,49 @@
   <div id="login-error"></div>
 </div>
 
-<!-- Upload section (hidden until login) -->
-<div id="upload-section" style="display:none;">
-  <h2>Paste or Upload Sensor Data</h2>
-  <div class="upload-instructions">
-    Paste tab-separated data from your spreadsheet below. The tool expects columns for:<br>
-    <code>Sensor ID</code> (QuantAQ MOD number), <code>SOA Tag ID</code>, and <code>Purchase Date</code>.<br>
-    Include the header row — the tool will auto-detect columns by name.
+<!-- Review area (hidden until login) -->
+<div id="review-area" style="display:none; width:100%; max-width:800px; margin:0 auto;">
+
+  <!-- Filter -->
+  <div class="filter-bar" id="filter-bar">
+    <label>Search:</label>
+    <input type="text" id="search-box" placeholder="Sensor ID..." oninput="searchSensor()">
+    <label style="margin-left:auto;">Show:</label>
+    <select id="show-filter" onchange="applyShowFilter()">
+      <option value="all">All</option>
+      <option value="matched">Matched Only</option>
+      <option value="no-match">No Match Only</option>
+      <option value="has-changes">Has Changes</option>
+    </select>
   </div>
-  <textarea class="paste-area" id="paste-area" placeholder="Paste spreadsheet data here (tab-separated)...&#10;&#10;Example:&#10;Sensor ID&#9;SOA Tag ID&#9;Purchase Date&#10;MOD-00456&#9;SOA-2024-001&#9;2024-03-15"></textarea>
-  <div class="upload-row">
-    <button class="btn btn-gold" onclick="parsePastedData()">Parse Data</button>
-    <span class="or-label">or</span>
-    <div class="file-input-wrapper">
-      <span class="file-input-label">Upload CSV File</span>
-      <input type="file" accept=".csv,.tsv,.txt" onchange="handleFileUpload(event)">
+
+  <!-- Progress -->
+  <div class="progress-bar-container">
+    <div class="progress-stats">
+      <span id="progress-label">Sensor 1 of 71</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
     </div>
   </div>
-  <div id="upload-status"></div>
-</div>
 
-<!-- Main review area (hidden until data is parsed) -->
-<div id="main-area" style="display:none; width:100%; max-width:800px; flex-direction:column; align-items:center;">
-  <div id="main-area-inner" style="display:none; width:100%;">
-
-    <!-- Filter -->
-    <div class="filter-bar" id="filter-bar">
-      <label>Search:</label>
-      <input type="text" id="search-box" placeholder="Sensor ID..." oninput="searchSensor()">
-      <label style="margin-left:auto;">Show:</label>
-      <select id="show-filter" onchange="applyShowFilter()">
-        <option value="all">All</option>
-        <option value="matched">Matched Only</option>
-        <option value="no-match">No Match Only</option>
-        <option value="has-changes">Has Changes</option>
-      </select>
-    </div>
-
-    <!-- Progress -->
-    <div class="progress-bar-container">
-      <div class="progress-stats">
-        <span id="progress-label">Sensor 1 of 50</span>
-        <span id="progress-pct">0%</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
-      </div>
-    </div>
-
-    <!-- Counters -->
-    <div class="counter-row">
-      <div class="counter updated"><div class="num" id="count-updated">0</div><div class="label">Updated</div></div>
-      <div class="counter skipped"><div class="num" id="count-skipped">0</div><div class="label">Skipped</div></div>
-      <div class="counter no-match"><div class="num" id="count-nomatch">0</div><div class="label">No Match</div></div>
-      <div class="counter remaining"><div class="num" id="count-remaining">0</div><div class="label">Remaining</div></div>
-    </div>
-
-    <!-- Review Card -->
-    <div class="review-card" id="review-card"></div>
-
-    <!-- Done -->
-    <div class="done-section" id="done-section" style="display:none;"></div>
-
-    <!-- Skipped list -->
-    <div class="skipped-list" id="skipped-list" style="display:none;"></div>
+  <!-- Counters -->
+  <div class="counter-row">
+    <div class="counter updated"><div class="num" id="count-updated">0</div><div class="label">Updated</div></div>
+    <div class="counter skipped"><div class="num" id="count-skipped">0</div><div class="label">Skipped</div></div>
+    <div class="counter no-match"><div class="num" id="count-nomatch">0</div><div class="label">No Match</div></div>
+    <div class="counter remaining"><div class="num" id="count-remaining">0</div><div class="label">Remaining</div></div>
   </div>
+
+  <!-- Review Card -->
+  <div class="review-card" id="review-card"></div>
+
+  <!-- Done -->
+  <div class="done-section" id="done-section" style="display:none;"></div>
+
+  <!-- Skipped list -->
+  <div class="skipped-list" id="skipped-list" style="display:none;"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -587,9 +565,17 @@ async function doLogin() {
 
     // Auto-load embedded SF data
     importRows = SF_SENSOR_DATA.map((r, i) => ({ ...r, _rowNum: i + 1 }));
+    console.log('Loaded', existingSensors.length, 'sensors from DB,', importRows.length, 'from SF');
     showToast(`Signed in. ${existingSensors.length} sensors loaded, ${importRows.length} Salesforce records ready.`, 'success');
-    startReview();
+    try {
+      startReview();
+    } catch (e) {
+      console.error('startReview error:', e);
+      document.getElementById('login-error').textContent = 'Review error: ' + e.message;
+      document.getElementById('login-section').style.display = '';
+    }
   } catch (err) {
+    console.error('Login error:', err);
     document.getElementById('login-error').textContent = err.message;
   }
 }
@@ -749,13 +735,7 @@ function normalizeDate(dateStr) {
 }
 
 function startReview() {
-  document.getElementById('upload-section').style.display = 'none';
-  document.getElementById('main-area').style.display = 'flex';
-  document.getElementById('main-area-inner').style.display = '';
-
-  document.getElementById('upload-status').innerHTML =
-    `<span style="color: var(--green);">Parsed ${importRows.length} rows. Starting review...</span>`;
-
+  document.getElementById('review-area').style.display = 'block';
   showSensor(0);
 }
 
@@ -866,7 +846,7 @@ function showSensor(index) {
     <div class="current-data">
       <h3>Current Sensor Data in Tracker</h3>
       <div class="sf-row"><span class="sf-label">Sensor ID:</span> <span class="sf-value">${escHtml(match.id)}</span></div>
-      <div class="sf-row"><span class="sf-label">Type:</span> <span class="sf-value">${escHtml((match.type || []).join(', ') || '—')}</span></div>
+      <div class="sf-row"><span class="sf-label">Type:</span> <span class="sf-value">${escHtml(Array.isArray(match.type) ? match.type.join(', ') : (match.type || '—'))}</span></div>
       <div class="sf-row"><span class="sf-label">Community:</span> <span class="sf-value">${escHtml(match.community_id || '—')}</span></div>
       <div class="sf-row"><span class="sf-label">SOA Tag ID:</span> <span class="sf-value">${currentSoa || '<em class="empty">not set</em>'}</span></div>
       <div class="sf-row"><span class="sf-label">Purchase Date:</span> <span class="sf-value">${currentDate || '<em class="empty">not set</em>'}</span></div>
