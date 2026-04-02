@@ -1722,6 +1722,17 @@ tr:hover .contact-delete-btn {
     background: rgba(244, 63, 94, 0.08);
 }
 
+.contacts-tab-description {
+    font-size: 13px;
+    color: var(--slate-500);
+    padding: 12px 16px;
+    background: var(--slate-25);
+    border: 1px solid var(--slate-100);
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
 /* ===== CONTACTS (grouped by community) ===== */
 .contacts-group {
     margin-bottom: 28px;

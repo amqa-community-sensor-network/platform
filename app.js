@@ -2327,8 +2327,13 @@ let contactsListTab = 'active';
 function switchContactsTab(tab) {
     contactsListTab = tab;
     document.getElementById('contacts-tab-active').classList.toggle('active', tab === 'active');
+    document.getElementById('contacts-tab-noncomm').classList.toggle('active', tab === 'noncomm');
     document.getElementById('contacts-tab-inactive').classList.toggle('active', tab === 'inactive');
     renderContacts();
+}
+
+function isNonCommunityContact(c) {
+    return !c.community || !COMMUNITIES.find(cm => cm.id === c.community);
 }
 
 function renderContacts() {
@@ -2336,17 +2341,23 @@ function renderContacts() {
     const isSearching = search.length > 0;
 
     // Update tab counts
-    const activeCommunityContacts = contacts.filter(c => !isCommunityDeactivated(c.community));
-    const inactiveCommunityContacts = contacts.filter(c => isCommunityDeactivated(c.community));
+    const nonCommContacts = contacts.filter(c => isNonCommunityContact(c));
+    const activeCommunityContacts = contacts.filter(c => !isNonCommunityContact(c) && !isCommunityDeactivated(c.community));
+    const inactiveCommunityContacts = contacts.filter(c => !isNonCommunityContact(c) && isCommunityDeactivated(c.community));
     const activeCountEl = document.getElementById('contacts-active-count');
     const inactiveCountEl = document.getElementById('contacts-inactive-count');
+    const noncommCountEl = document.getElementById('contacts-noncomm-count');
     if (activeCountEl) activeCountEl.textContent = `(${activeCommunityContacts.length})`;
     if (inactiveCountEl) inactiveCountEl.textContent = `(${inactiveCommunityContacts.length})`;
+    if (noncommCountEl) noncommCountEl.textContent = `(${nonCommContacts.length})`;
 
     let filtered = contacts.filter(c => {
-        if (search && !c.name.toLowerCase().includes(search) && !getCommunityName(c.community).toLowerCase().includes(search)) return false;
-        // Filter by community active/inactive tab (skip when searching)
+        if (search && !c.name.toLowerCase().includes(search) && !getCommunityName(c.community).toLowerCase().includes(search) && !(c.org || '').toLowerCase().includes(search)) return false;
+        // Filter by tab (skip when searching)
         if (!isSearching) {
+            const isNonComm = isNonCommunityContact(c);
+            if (contactsListTab === 'noncomm') return isNonComm;
+            if (isNonComm) return false; // exclude non-community contacts from active/inactive tabs
             const showInactive = contactsListTab === 'inactive';
             const communityIsInactive = isCommunityDeactivated(c.community);
             if (showInactive !== communityIsInactive) return false;
@@ -2354,12 +2365,12 @@ function renderContacts() {
         return true;
     });
 
-    // Group by community, sorted alphabetically
+    // Group by community (or org for non-community), sorted alphabetically
     const groups = {};
     filtered.forEach(c => {
-        const commName = getCommunityName(c.community);
-        if (!groups[commName]) groups[commName] = [];
-        groups[commName].push(c);
+        const groupName = isNonCommunityContact(c) ? (c.org || 'Unassigned') : getCommunityName(c.community);
+        if (!groups[groupName]) groups[groupName] = [];
+        groups[groupName].push(c);
     });
 
     // Sort community names alphabetically
@@ -2376,7 +2387,19 @@ function renderContacts() {
     });
 
     const container = document.getElementById('contacts-grid');
-    container.innerHTML = sortedCommunities.map(commName => `
+
+    // Description for non-community tab
+    const tabDesc = contactsListTab === 'noncomm' && !isSearching
+        ? `<div class="contacts-tab-description">Contacts outside of the sensor community network — partner agencies, vendors, regional coordinators, and other key people worth keeping on file.</div>`
+        : '';
+
+    const emptyMessages = {
+        active: 'No contacts found.',
+        inactive: 'No contacts in inactive communities.',
+        noncomm: 'No non-community contacts yet.',
+    };
+
+    container.innerHTML = tabDesc + (sortedCommunities.map(commName => `
         <div class="contacts-group">
             <div class="contacts-group-header">${commName}</div>
             <div class="table-container">
@@ -2387,7 +2410,7 @@ function renderContacts() {
                 </tbody></table>
             </div>
         </div>
-    `).join('') || `<div class="empty-state">${contactsListTab === 'inactive' && !isSearching ? 'No contacts in inactive communities.' : 'No contacts found.'}</div>`;
+    `).join('') || `<div class="empty-state">${isSearching ? 'No contacts found.' : (emptyMessages[contactsListTab] || 'No contacts found.')}</div>`);
 }
 
 function openAddContactModal() {
