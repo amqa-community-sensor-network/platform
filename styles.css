@@ -1653,7 +1653,7 @@ tr:last-child td {
 .contacts-table .col-org        { width: 13%; }
 .contacts-table .col-email      { width: 27%; overflow: visible; }
 .contacts-table .col-phone      { width: 12%; white-space: nowrap; }
-.contacts-table .col-status     { width: 5%; }
+.contacts-table .col-status     { width: 6%; white-space: nowrap; }
 .contacts-table .col-actions    { width: 4%; text-align: center; padding: 0; }
 
 .contacts-table .col-name .contact-primary-badge { vertical-align: middle; }
