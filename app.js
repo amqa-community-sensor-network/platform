@@ -2389,7 +2389,7 @@ function renderContactRow(c) {
         <td class="col-name"><span class="clickable">${c.name}</span>${primaryBadge}</td>
         <td class="col-role" title="${escapeHtml(c.role || '')}">${c.role || '—'}</td>
         <td class="col-org" title="${escapeHtml(c.org || '')}">${c.org || '—'}</td>
-        <td class="col-email"><span class="email-cell">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '<span class="no-email">—</span>'}<label class="email-list-toggle" onclick="event.stopPropagation()" title="${c.emailList ? 'On network-wide email list — click to remove' : 'Not on email list — click to add'}"><input type="checkbox" class="email-list-checkbox" ${c.emailList ? 'checked' : ''} onchange="toggleContactEmailList('${c.id}')"><span class="email-list-label">Email List</span></label></span></td>
+        <td class="col-email"><span class="email-cell">${c.email ? `<a href="#" class="clickable" onclick="event.stopPropagation(); openQuickEmail('${c.id}')">${c.email}</a>` : '<span class="no-email">—</span>'}<label class="email-list-toggle" onclick="event.stopPropagation()" title="${c.emailList ? 'On Mass Email List — click to remove' : 'Not on Mass Email List — click to add'}"><input type="checkbox" class="email-list-checkbox" ${c.emailList ? 'checked' : ''} onchange="toggleContactEmailList('${c.id}')"><span class="email-list-label">Mass Email</span></label></span></td>
         <td class="col-phone">${c.phone ? `<a href="tel:${c.phone}" class="clickable" onclick="event.stopPropagation()">${c.phone}</a>` : '—'}</td>
         <td class="col-status">${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--aurora-green);font-size:11px;font-weight:600">Active</span>'}</td>
         <td class="col-actions"><button class="contact-delete-btn" onclick="event.stopPropagation(); confirmDeleteContact('${c.id}')" title="Delete contact">&#128465;</button></td>
@@ -2730,7 +2730,7 @@ function showContactView(contactId) {
                     <option value="false" ${!c.primaryContact ? 'selected' : ''}>No</option>
                 </select>
             </div>
-            <div class="info-item"><label>Email List</label>
+            <div class="info-item"><label>Mass Email List</label>
                 <select class="inline-edit-select" data-contact="${c.id}" data-field="emailList" onchange="inlineSaveContact(this)">
                     <option value="true" ${c.emailList ? 'selected' : ''}>Included</option>
                     <option value="false" ${!c.emailList ? 'selected' : ''}>Not included</option>
@@ -2749,7 +2749,7 @@ function showContactView(contactId) {
             <div class="info-item"><label>Phone</label><p class="editable-field" onclick="inlineEditContact('${c.id}', 'phone')">${c.phone || '<span class="field-placeholder">Phone</span>'}</p></div>
             <div class="info-item"><label>Status</label><p>${c.active === false ? '<span class="contact-inactive-badge">Inactive</span>' : '<span style="color:var(--navy-500);font-weight:600">Active</span>'}</p></div>
             <div class="info-item"><label>Primary Contact</label><p class="editable-field" onclick="togglePrimaryContact('${c.id}')">${c.primaryContact ? '<span class="contact-primary-badge">Primary</span>' : '<span class="field-placeholder">No</span>'}</p></div>
-            <div class="info-item"><label>Email List</label><p class="editable-field" onclick="toggleContactEmailList('${c.id}')">${c.emailList ? '<span style="color:var(--aurora-green);font-weight:600">Included</span>' : '<span class="field-placeholder">Not included</span>'}</p></div>
+            <div class="info-item"><label>Mass Email List</label><p class="editable-field" onclick="toggleContactEmailList('${c.id}')">${c.emailList ? '<span style="color:var(--aurora-green);font-weight:600">Included</span>' : '<span class="field-placeholder">Not included</span>'}</p></div>
         `;
     }
 
@@ -2901,7 +2901,7 @@ function toggleContactEmailList(contactId) {
     if (!c) return;
     c.emailList = !c.emailList;
     persistContact(c);
-    showSuccessToast(c.emailList ? 'Added to email list' : 'Removed from email list');
+    showSuccessToast(c.emailList ? 'Added to Mass Email List' : 'Removed from Mass Email List');
     // Re-render current view if on contact detail, otherwise leave checkbox as-is (already toggled by click)
     if (currentContact === contactId && document.getElementById('view-contact-detail')?.classList.contains('active')) {
         showContactView(contactId);
@@ -3110,7 +3110,7 @@ function renderEmailRecipients(filter) {
             <div class="email-community-header">${commName}</div>
             ${groupContacts.map(c => {
                 const isChecked = filter === 'network' ? c.emailList : true;
-                const badge = c.emailList ? '<span class="email-list-badge">Email List</span>' : '';
+                const badge = c.emailList ? '<span class="email-list-badge">Mass Email</span>' : '';
                 return `
                 <div class="email-recipient-row">
                     <input type="checkbox" id="email-cb-${c.id}" data-contact-id="${c.id}" data-community="${c.community}" ${isChecked ? 'checked' : ''}>
@@ -3141,7 +3141,7 @@ function emailSelectNetworkList() {
     const onListCount = contacts.filter(c => c.active !== false && c.emailList).length;
     if (onListCount === 0) {
         document.getElementById('email-recipients-list').innerHTML =
-            '<div class="empty-state">No contacts on the network-wide email list yet. Use the checkboxes on the Contacts tab to add them.</div>';
+            '<div class="empty-state">No contacts on the Mass Email List yet. Use the checkboxes on the Contacts tab to add them.</div>';
     }
 }
 
@@ -3165,7 +3165,7 @@ function emailFilterByCommunity() {
     list.innerHTML = `
         <div class="email-community-header">${commName}</div>
         ${filtered.sort((a, b) => a.name.localeCompare(b.name)).map(c => {
-            const badge = c.emailList ? '<span class="email-list-badge">Email List</span>' : '';
+            const badge = c.emailList ? '<span class="email-list-badge">Mass Email</span>' : '';
             return `
             <div class="email-recipient-row">
                 <input type="checkbox" id="email-cb-${c.id}" data-contact-id="${c.id}" data-community="${c.community}" checked>
@@ -3263,7 +3263,7 @@ function openQuickEmail(contactId) {
     document.getElementById('btn-network-email-list').classList.remove('active');
 
     // Render only this contact as a recipient
-    const badge = c.emailList ? '<span class="email-list-badge">Email List</span>' : '';
+    const badge = c.emailList ? '<span class="email-list-badge">Mass Email</span>' : '';
     const list = document.getElementById('email-recipients-list');
     list.innerHTML = `
         <div class="email-community-header">${getCommunityName(c.community)}</div>
@@ -5119,7 +5119,7 @@ const CONTACT_EXPORT_FIELDS = [
     { key: 'org', label: 'Organization', get: c => c.org || '' },
     { key: 'email', label: 'Email', get: c => c.email || '' },
     { key: 'phone', label: 'Phone', get: c => c.phone || '' },
-    { key: 'emailList', label: 'Email List', get: c => c.emailList ? 'Yes' : 'No' },
+    { key: 'emailList', label: 'Mass Email List', get: c => c.emailList ? 'Yes' : 'No' },
     { key: 'active', label: 'Status', get: c => c.active === false ? 'Inactive' : 'Active' },
 ];
 
