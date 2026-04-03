@@ -30,6 +30,8 @@ async function loadQuantAQAlerts() {
             issueType: row.issue_type,
             detail: row.detail || '',
             status: row.status,
+            severity: row.severity || ALERT_SEVERITY[row.issue_type] || 'warning',
+            graceExpiresAt: row.grace_expires_at || null,
             isNew: row.is_new,
             detectedAt: row.detected_at,
             resolvedAt: row.resolved_at,
@@ -99,6 +101,18 @@ function describeQAQFlags(f) {
 const EXPECTED_OFFLINE = ['Offline','Lab Storage','In Transit Between Audits','Service at Quant','Ready for Deployment','Shipped to Quant','Shipped from Quant','Needs Repair'];
 const OFFLINE_MS = 60 * 60 * 1000;
 
+// Severity tiers and grace periods
+const ALERT_SEVERITY = {
+    'PM Sensor Issue': 'critical',
+    'SD Card Issue': 'critical',
+    'Gaseous Sensor Issue': 'warning',
+    'Lost Connection': 'info',
+};
+const GRACE_PERIODS = {
+    'Gaseous Sensor Issue': 6 * 60 * 60 * 1000,  // 6 hours
+    'Lost Connection': 2 * 60 * 60 * 1000,        // 2 hours
+};
+
 async function runQuantAQCheck() {
     if (quantaqChecking) return;
     quantaqChecking = true;
@@ -116,8 +130,8 @@ async function runQuantAQCheck() {
     try {
         const now = new Date().toISOString();
 
-        // Load existing active alerts
-        const { data: existingAlerts } = await supa.from('quantaq_alerts').select('*').eq('status', 'active');
+        // Load existing active + pending alerts
+        const { data: existingAlerts } = await supa.from('quantaq_alerts').select('*').in('status', ['active', 'pending']);
         const stillActiveIds = new Set();
         const newAlerts = [];
         const statusUpdates = [];
@@ -153,8 +167,9 @@ async function runQuantAQCheck() {
                     stillActiveIds.add(existing.id);
                     await supa.from('quantaq_alerts').update({ last_checked: now, detail, is_new: false }).eq('id', existing.id);
                 } else {
-                    newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: 'Lost Connection', detail, status: 'active', is_new: true, detected_at: now, last_checked: now, notes: [] });
-                    statusUpdates.push({ sn: d.sn, statuses: ['Lost Connection'] });
+                    const graceMs = GRACE_PERIODS['Lost Connection'];
+                    const graceExpires = new Date(Date.now() + graceMs).toISOString();
+                    newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: 'Lost Connection', detail, status: 'pending', severity: 'info', grace_expires_at: graceExpires, is_new: true, detected_at: now, last_checked: now, notes: [] });
                 }
             } else {
                 onlineDevices.push(d);
@@ -188,30 +203,80 @@ async function runQuantAQCheck() {
                             stillActiveIds.add(existing.id);
                             await supa.from('quantaq_alerts').update({ last_checked: now, detail: `Flags: ${flagDesc} (raw: ${raw.flag})`, is_new: false }).eq('id', existing.id);
                         } else {
-                            newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: issueType, detail: `Flags: ${flagDesc} (raw: ${raw.flag})`, status: 'active', is_new: true, detected_at: now, last_checked: now, notes: [] });
-                            statusUpdates.push({ sn: d.sn, statuses: [issueType] });
+                            const severity = ALERT_SEVERITY[issueType] || 'warning';
+                            const graceMs = GRACE_PERIODS[issueType];
+                            if (severity === 'critical') {
+                                // Critical: immediate active alert + sensor status update
+                                newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: issueType, detail: `Flags: ${flagDesc} (raw: ${raw.flag})`, status: 'active', severity, is_new: true, detected_at: now, last_checked: now, notes: [] });
+                                statusUpdates.push({ sn: d.sn, statuses: [issueType] });
+                            } else {
+                                // Warning/Info: pending with grace period
+                                const graceExpires = new Date(Date.now() + graceMs).toISOString();
+                                newAlerts.push({ sensor_sn: d.sn, sensor_model: d.model, community_name: community, issue_type: issueType, detail: `Flags: ${flagDesc} (raw: ${raw.flag})`, status: 'pending', severity, grace_expires_at: graceExpires, is_new: true, detected_at: now, last_checked: now, notes: [] });
+                            }
                         }
                     }
                 } catch(e) { console.warn(`[QAQ] Raw error for ${d.sn}:`, e); }
             }));
         }
 
-        // Step 4: Insert new alerts + create event notes
+        // Step 4: Insert new alerts + create event notes for ACTIVE (critical) only
         if (newAlerts.length > 0) {
             await supa.from('quantaq_alerts').insert(newAlerts);
             for (const alert of newAlerts) {
+                if (alert.status !== 'active') continue; // Only create notes for critical/active alerts
                 try {
                     const appSensor = sensors.find(s => s.id === alert.sensor_sn);
                     const communityId = appSensor?.community || '';
-                    const note = createNote('Issue', `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn}. ${alert.detail}`, {
+                    createNote('Issue', `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn}. ${alert.detail}`, {
                         sensors: [alert.sensor_sn], communities: communityId ? [communityId] : [], contacts: [],
                     });
                 } catch(e) {}
             }
         }
 
-        // Step 5: Resolve cleared alerts
-        const toResolve = (existingAlerts || []).filter(a => !stillActiveIds.has(a.id));
+        // Step 4b: Process existing PENDING alerts — promote or silently dismiss
+        const pendingAlerts = (existingAlerts || []).filter(a => a.status === 'pending');
+        let promotedCount = 0, silentDismissCount = 0;
+        for (const alert of pendingAlerts) {
+            const stillActive = stillActiveIds.has(alert.id);
+            const graceExpired = alert.grace_expires_at && new Date(alert.grace_expires_at) <= new Date();
+
+            if (!stillActive) {
+                // Flag cleared during grace period — silently delete, no note ever created
+                await supa.from('quantaq_alerts').delete().eq('id', alert.id);
+                silentDismissCount++;
+            } else if (graceExpired) {
+                // Grace period expired and still flagged — promote to active
+                await supa.from('quantaq_alerts').update({ status: 'active', is_new: true, last_checked: now }).eq('id', alert.id);
+                promotedCount++;
+                // Create event note now
+                try {
+                    const appSensor = sensors.find(s => s.id === alert.sensor_sn);
+                    const communityId = appSensor?.community || '';
+                    createNote('Issue', `QuantAQ Auto-Flag: ${alert.issue_type} detected on ${alert.sensor_sn} (persisted past ${alert.issue_type === 'Lost Connection' ? '2-hour' : '6-hour'} grace period). ${alert.detail}`, {
+                        sensors: [alert.sensor_sn], communities: communityId ? [communityId] : [], contacts: [],
+                    });
+                } catch(e) {}
+                // Update sensor status
+                const appSensor = sensors.find(s => s.id === alert.sensor_sn);
+                if (appSensor) {
+                    const cur = getStatusArray(appSensor);
+                    const merged = new Set([...cur, alert.issue_type]);
+                    merged.delete('Online');
+                    const final = [...merged];
+                    if ([...final].sort().join(',') !== [...cur].sort().join(',')) {
+                        appSensor.status = final;
+                        persistSensor(appSensor);
+                    }
+                }
+            }
+            // else: still within grace period — leave as pending
+        }
+
+        // Step 5: Resolve cleared ACTIVE alerts (not pending — those were silently deleted above)
+        const activeExisting = (existingAlerts || []).filter(a => a.status === 'active');
+        const toResolve = activeExisting.filter(a => !stillActiveIds.has(a.id));
         if (toResolve.length > 0) {
             const ids = toResolve.map(a => a.id);
             await supa.from('quantaq_alerts').update({ status: 'resolved', resolved_at: now, is_new: true, last_checked: now }).in('id', ids);
@@ -253,7 +318,15 @@ async function runQuantAQCheck() {
         await loadQuantAQAlerts();
         await loadQuantAQLastCheck();
         const elapsed = Math.floor((Date.now() - checkStartTime) / 1000);
-        updateQuantAQStatus(`Check complete in ${elapsed}s: ${devices.length} devices, ${newAlerts.length} new alerts, ${toResolve.length} resolved`);
+        const newActive = newAlerts.filter(a => a.status === 'active').length;
+        const newPending = newAlerts.filter(a => a.status === 'pending').length;
+        let statusMsg = `Check complete in ${elapsed}s: ${devices.length} devices`;
+        if (newActive > 0) statusMsg += `, ${newActive} new alerts`;
+        if (newPending > 0) statusMsg += `, ${newPending} pending`;
+        if (promotedCount > 0) statusMsg += `, ${promotedCount} promoted`;
+        if (silentDismissCount > 0) statusMsg += `, ${silentDismissCount} auto-cleared`;
+        if (toResolve.length > 0) statusMsg += `, ${toResolve.length} resolved`;
+        updateQuantAQStatus(statusMsg);
         renderDashboardAlerts();
         buildSensorSidebar();
 
@@ -314,6 +387,7 @@ function renderDashboardAlerts() {
     }
 
     const active = quantaqAlerts.filter(a => a.status === 'active' && !a.acknowledgedBy);
+    const pending = quantaqAlerts.filter(a => a.status === 'pending');
     const newAlerts = active.filter(a => a.isNew);
     const offline = active.filter(a => a.issueType === 'Lost Connection');
     const pmIssues = active.filter(a => a.issueType === 'PM Sensor Issue');
@@ -323,7 +397,7 @@ function renderDashboardAlerts() {
 
     const dismissed = quantaqAlerts.filter(a => a.acknowledgedBy);
 
-    if (active.length === 0 && resolved.length === 0 && dismissed.length === 0 && !quantaqLastCheck) {
+    if (active.length === 0 && pending.length === 0 && resolved.length === 0 && dismissed.length === 0 && !quantaqLastCheck) {
         container.innerHTML = `<div class="quantaq-empty" style="padding:24px">
             <p style="font-size:14px;color:var(--slate-400)">Click "Run QuantAQ Check" to scan all sensors for issues.</p>
         </div>`;
@@ -335,6 +409,7 @@ function renderDashboardAlerts() {
     // Tabs
     html += `<div class="quantaq-tabs">
         <button class="quantaq-tab ${quantaqTab === 'active' ? 'active' : ''}" onclick="switchQuantAQTab('active')">Active Alerts</button>
+        <button class="quantaq-tab ${quantaqTab === 'pending' ? 'active' : ''}" onclick="switchQuantAQTab('pending')">Pending${pending.length > 0 ? ` (${pending.length})` : ''}</button>
         <button class="quantaq-tab ${quantaqTab === 'dismissed' ? 'active' : ''}" onclick="switchQuantAQTab('dismissed')">Dismissed${dismissed.length > 0 ? ` (${dismissed.length})` : ''}</button>
     </div>`;
 
@@ -354,6 +429,19 @@ function renderDashboardAlerts() {
             </div>`;
         }
 
+        container.innerHTML = html;
+        return;
+    }
+
+    if (quantaqTab === 'pending') {
+        if (pending.length > 0) {
+            html += `<p style="font-size:13px;color:var(--slate-400);margin-bottom:16px">These alerts are in a grace period. If the issue persists past the timer, it will be promoted to an active alert and an event note will be created. Transient issues (power blips, routine restarts) typically clear on their own.</p>`;
+            html += renderPendingAlertList(pending);
+        } else {
+            html += `<div class="quantaq-empty" style="padding:24px">
+                <p style="font-size:13px;color:var(--slate-400)">No pending alerts. Gaseous sensor flags and lost connections start here with a grace period before becoming active alerts.</p>
+            </div>`;
+        }
         container.innerHTML = html;
         return;
     }
@@ -402,8 +490,17 @@ function renderDashboardAlerts() {
         html += renderQuantAQAlertList(filteredResolved, false);
     }
 
+    // Pending summary (shown on active tab)
+    if (pending.length > 0 && !quantaqFilter) {
+        html += `<h3 class="quantaq-section-title" style="color:var(--gold-600)">Pending — Grace Period (${pending.length}) <a href="#" onclick="event.preventDefault();switchQuantAQTab('pending')" style="font-size:12px;font-weight:400;color:var(--slate-400);margin-left:8px">View all &rarr;</a></h3>`;
+        html += renderPendingAlertList(pending.slice(0, 3));
+        if (pending.length > 3) {
+            html += `<p style="font-size:12px;color:var(--slate-400);margin:8px 0 16px"><a href="#" onclick="event.preventDefault();switchQuantAQTab('pending')" style="color:var(--navy-400)">+ ${pending.length - 3} more pending alerts</a></p>`;
+        }
+    }
+
     // All clear
-    if (active.length === 0 && quantaqLastCheck) {
+    if (active.length === 0 && pending.length === 0 && quantaqLastCheck) {
         html += `<div class="quantaq-empty" style="padding:24px">
             <span style="font-size:28px;color:#16a34a">&#10003;</span>
             <p style="font-size:15px;font-weight:600;color:var(--navy-500);margin-top:6px">All Clear</p>
@@ -422,6 +519,7 @@ function renderQuantAQAlertsView() {
     if (!container) return;
 
     const active = quantaqAlerts.filter(a => a.status === 'active' && !a.acknowledgedBy);
+    const pending = quantaqAlerts.filter(a => a.status === 'pending');
     const newActive = active.filter(a => a.isNew);
     const ongoingActive = active.filter(a => !a.isNew);
     const resolved = quantaqAlerts.filter(a => a.status === 'resolved' && a.isNew);
@@ -450,6 +548,7 @@ function renderQuantAQAlertsView() {
 
     html += `<div class="quantaq-summary-row">
         <div class="quantaq-summary-card"><span class="quantaq-summary-num ${active.length > 0 ? 'alert' : 'ok'}">${active.length}</span><span class="quantaq-summary-label">Active Alerts</span></div>
+        <div class="quantaq-summary-card"><span class="quantaq-summary-num" style="color:var(--gold-600)">${pending.length}</span><span class="quantaq-summary-label">Pending</span></div>
         <div class="quantaq-summary-card"><span class="quantaq-summary-num ${offline.length > 0 ? 'alert' : ''}">${offline.length}</span><span class="quantaq-summary-label">Offline</span></div>
         <div class="quantaq-summary-card"><span class="quantaq-summary-num ${pmIssues.length > 0 ? 'alert' : ''}">${pmIssues.length}</span><span class="quantaq-summary-label">PM Issues</span></div>
         <div class="quantaq-summary-card"><span class="quantaq-summary-num ${gasIssues.length > 0 ? 'alert' : ''}">${gasIssues.length}</span><span class="quantaq-summary-label">Gas Issues</span></div>
@@ -469,21 +568,72 @@ function renderQuantAQAlertsView() {
         html += renderQuantAQAlertList(ongoingActive, false);
     }
 
+    // Pending
+    if (pending.length > 0) {
+        html += `<h3 class="quantaq-section-title" style="color:var(--gold-600)">Pending — Grace Period (${pending.length})</h3>`;
+        html += renderPendingAlertList(pending);
+    }
+
     // Resolved
     if (resolved.length > 0) {
         html += `<h3 class="quantaq-section-title" style="color:#16a34a">Resolved Since Last Check (${resolved.length})</h3>`;
         html += renderQuantAQAlertList(resolved, false);
     }
 
-    if (active.length === 0 && resolved.length === 0) {
+    if (active.length === 0 && pending.length === 0 && resolved.length === 0) {
         html += `<div class="quantaq-empty">
             <span style="font-size:36px">&#10003;</span>
             <p style="font-size:15px;font-weight:600;color:var(--navy-500);margin-top:8px">All Clear</p>
-            <p style="font-size:13px;color:var(--slate-400)">No active alerts. All sensors are online and healthy.</p>
+            <p style="font-size:13px;color:var(--slate-400)">No active or pending alerts. All sensors are online and healthy.</p>
         </div>`;
     }
 
     container.innerHTML = html;
+}
+
+function renderPendingAlertList(alerts) {
+    return alerts.map(a => {
+        const badgeClass = a.issueType === 'Lost Connection' ? 'quantaq-badge-offline'
+            : a.issueType === 'Gaseous Sensor Issue' ? 'quantaq-badge-gas'
+            : a.issueType === 'PM Sensor Issue' ? 'quantaq-badge-pm'
+            : 'quantaq-badge-sd';
+        const detectedStr = new Date(a.detectedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+        let countdownHtml = '';
+        if (a.graceExpiresAt) {
+            const remaining = new Date(a.graceExpiresAt).getTime() - Date.now();
+            if (remaining > 0) {
+                const hrs = Math.floor(remaining / 3600000);
+                const mins = Math.floor((remaining % 3600000) / 60000);
+                countdownHtml = `<span class="pending-countdown">${hrs}h ${mins}m remaining</span>`;
+            } else {
+                countdownHtml = `<span class="pending-countdown expired">Grace period expired — will promote on next check</span>`;
+            }
+        }
+
+        const severityLabel = (ALERT_SEVERITY[a.issueType] || 'warning').toUpperCase();
+
+        return `<div class="quantaq-alert-card pending">
+            <div class="quantaq-alert-header">
+                <div class="quantaq-alert-header-left">
+                    <span class="quantaq-alert-sensor" onclick="showSensorDetail('${a.sensorSn}')" style="cursor:pointer">${a.sensorSn}</span>
+                    <span class="quantaq-badge ${badgeClass}">${a.issueType}</span>
+                    <span class="pending-severity-badge">${severityLabel}</span>
+                </div>
+                <div class="quantaq-alert-header-right">
+                    ${countdownHtml}
+                </div>
+            </div>
+            <div class="quantaq-alert-body">
+                <p class="quantaq-alert-detail">${a.detail || ''}</p>
+                <p class="quantaq-alert-meta">Detected: ${detectedStr}${a.communityName ? ` &middot; ${a.communityName}` : ''}</p>
+            </div>
+            <div class="quantaq-alert-actions">
+                <button class="btn btn-sm" style="background:var(--gold-500);color:var(--navy-900)" onclick="promoteAlert('${a.id}')">Promote Now</button>
+                <button class="btn btn-sm" onclick="silentDismissPendingAlert('${a.id}')">Dismiss</button>
+            </div>
+        </div>`;
+    }).join('');
 }
 
 function renderQuantAQAlertList(alerts, isNew) {
@@ -716,6 +866,57 @@ async function deleteQuantAQAlert(alertId) {
         await supa.from('quantaq_alerts').delete().eq('id', alertId);
     } catch (err) {
         console.error('[QuantAQ] Failed to delete alert:', err);
+    }
+}
+
+// ===== PENDING ALERT ACTIONS =====
+async function promoteAlert(alertId) {
+    const alert = quantaqAlerts.find(a => a.id === alertId);
+    if (!alert) return;
+
+    try {
+        const now = new Date().toISOString();
+        await supa.from('quantaq_alerts').update({ status: 'active', is_new: true, last_checked: now }).eq('id', alertId);
+
+        // Create event note
+        const appSensor = sensors.find(s => s.id === alert.sensorSn);
+        const communityId = appSensor?.community || '';
+        createNote('Issue', `QuantAQ Auto-Flag: ${alert.issueType} detected on ${alert.sensorSn} (manually promoted). ${alert.detail}`, {
+            sensors: [alert.sensorSn], communities: communityId ? [communityId] : [], contacts: [],
+        });
+
+        // Update sensor status
+        if (appSensor) {
+            const cur = getStatusArray(appSensor);
+            const merged = new Set([...cur, alert.issueType]);
+            merged.delete('Online');
+            appSensor.status = [...merged];
+            persistSensor(appSensor);
+        }
+
+        alert.status = 'active';
+        alert.isNew = true;
+        showSuccessToast(`Alert promoted — event note created for ${alert.sensorSn}`);
+        renderDashboardAlerts();
+        renderQuantAQAlertsView();
+        buildSensorSidebar();
+    } catch (err) {
+        console.error('[QuantAQ] Failed to promote alert:', err);
+    }
+}
+
+async function silentDismissPendingAlert(alertId) {
+    const alert = quantaqAlerts.find(a => a.id === alertId);
+    if (!alert) return;
+
+    try {
+        await supa.from('quantaq_alerts').delete().eq('id', alertId);
+        quantaqAlerts = quantaqAlerts.filter(a => a.id !== alertId);
+        showSuccessToast(`Pending alert dismissed — no note created`);
+        renderDashboardAlerts();
+        renderQuantAQAlertsView();
+    } catch (err) {
+        console.error('[QuantAQ] Failed to dismiss pending alert:', err);
     }
 }
 

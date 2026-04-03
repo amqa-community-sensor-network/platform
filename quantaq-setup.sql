@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS quantaq_alerts (
     community_name TEXT,
     issue_type TEXT NOT NULL,  -- 'Offline', 'PM Sensor Issue', 'Gaseous Sensor Issue', 'SD Card Issue'
     detail TEXT,
-    status TEXT NOT NULL DEFAULT 'active',  -- 'active', 'resolved', 'acknowledged'
+    status TEXT NOT NULL DEFAULT 'active',  -- 'active', 'pending', 'resolved', 'acknowledged'
+    severity TEXT DEFAULT 'warning',       -- 'critical', 'warning', 'info'
+    grace_expires_at TIMESTAMPTZ,          -- when grace period ends (null for critical)
     is_new BOOLEAN DEFAULT true,
     detected_at TIMESTAMPTZ DEFAULT now(),
     resolved_at TIMESTAMPTZ,
