@@ -1648,13 +1648,40 @@ tr:last-child td {
     white-space: nowrap;
 }
 
-.contacts-table .col-name       { width: 16%; }
-.contacts-table .col-role       { width: 14%; }
-.contacts-table .col-org        { width: 16%; }
-.contacts-table .col-email      { width: 30%; overflow: visible; white-space: normal; }
-.contacts-table .col-phone      { width: 12%; }
-.contacts-table .col-status     { width: 8%; }
+.contacts-table .col-name       { width: 20%; }
+.contacts-table .col-role       { width: 16%; white-space: normal; }
+.contacts-table .col-org        { width: 14%; }
+.contacts-table .col-email      { width: 24%; overflow: visible; white-space: normal; }
+.contacts-table .col-phone      { width: 10%; }
+.contacts-table .col-status     { width: 7%; }
 .contacts-table .col-actions    { width: 4%; text-align: center; padding: 0; }
+
+.contacts-table .col-name .contact-primary-badge { vertical-align: middle; }
+
+.primary-toggle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
+    cursor: pointer;
+    font-size: 10px;
+}
+.primary-toggle input[type="checkbox"] {
+    accent-color: var(--gold-500);
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+}
+.primary-toggle-label {
+    color: var(--slate-400);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.primary-toggle input:checked + .primary-toggle-label {
+    color: var(--gold-600);
+    font-weight: 600;
+}
 
 /* Email cell: email address + inline checkbox */
 .email-cell {
